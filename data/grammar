@@ -1,0 +1,8 @@
+#{
+// prelude
+}
+NTerm(uint): {
+	() => { (0u) },
+	(Nterm 'c') => { let (inner, _) = symbols; (1+inner) }
+}
+	
