@@ -2,7 +2,7 @@ extern crate lexer;
 extern crate nester;
 
 use lexer::{Lexer, Other, Identifier, Char};
-use nester::{nesting, Token, Tree, Tok};
+use nester::{nesting, Token, Tree, Tok, PrettyPrint};
 use std::io::{BufferedReader, File};
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
@@ -96,9 +96,9 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 				pos += 1;
 				let type_ = match tree[pos].content {
 					Tree('}', _) => Vec::new(),
-					Tree(')', ref x @ _) => {
+					Tree(')', ref t @ _) => {
 						pos +=1;
-						x.clone()
+						t.clone()
 					},
 					_ => fail!()
 				};
@@ -137,6 +137,9 @@ fn main() {
 		Ok(x) => x,
 		Err(e) => fail!("{}", e)
 	};
-	println!("{}", tree);
+	match tree.iter().pretty_print(&mut std::io::stdio::stdout(), 0, false) {
+		Ok(_) => {},
+		Err(e) => fail!("{}", e)
+	}
 	println!("{}", parse_grammar(tree.as_slice()));
 }
