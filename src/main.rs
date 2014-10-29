@@ -1,7 +1,7 @@
 extern crate lexer;
 extern crate nester;
 
-use lexer::{Lexer, Other, Identifier, Char};
+use lexer::{Lexer, Other, Identifier, Char, Arrow};
 use nester::{nesting, Token, Tree, Tok, PrettyPrint};
 use std::io::{BufferedReader, File};
 use std::path::Path;
@@ -57,7 +57,16 @@ fn parse_rules(tree: &[Token]) -> Vec<Rule> {
 					pos += 1;
 					break;
 				},
+				Tok(Arrow) => { 
+					pos += 1;
+				}
 				_ => fail!()
+			}
+		}
+		if pos != tree.len() {
+			match tree[pos].content {
+				Tok(Other(',')) => { pos += 1; },
+				_ => {}
 			}
 		}
 		if pos == tree.len() {
@@ -116,6 +125,12 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 			},
 			_ => fail!()
 		}
+		if pos != tree.len() {
+			match tree[pos].content {
+				Tok(Other(',')) => { pos += 1; },
+				_ => {}
+			}
+		}
 		if pos == tree.len() {
 			break;
 		}
@@ -137,7 +152,7 @@ fn main() {
 		Ok(x) => x,
 		Err(e) => fail!("{}", e)
 	};
-	match tree.iter().pretty_print(&mut std::io::stdio::stdout(), 0, false) {
+	match tree.iter().pretty_print(&mut std::io::stdio::stdout(), 0, true) {
 		Ok(_) => {},
 		Err(e) => fail!("{}", e)
 	}
