@@ -1,23 +1,69 @@
 extern crate lexer;
 extern crate nester;
 
-use lexer::{Lexer, Other, Identifier};
+use lexer::{Lexer, Other, Identifier, Char};
 use nester::{nesting, Token, Tree, Tok};
 use std::io::{BufferedReader, File};
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
 
+#[deriving(Show)]
+enum RuleItem {
+	Sym(String),
+	Chr(char)
+}
+
+#[deriving(Show)]
 struct Rule {
-	seq: Vec<String>,
+	seq: Vec<RuleItem>,
 	rule: Token
 }
 
+#[deriving(Show)]
+struct NTerm {
+	type_: Vec<Token>,
+	rules: Vec<Rule>
+}
+
+#[deriving(Show)]
 struct Grammar {
 	prelude: Vec<Token>,
 	terms: HashSet<String>,
 	chars: HashSet<char>,
-	nterms: HashMap<String, Vec<Rule>>,
+	nterms: HashMap<String, NTerm>,
 	start: Option<String>
+}
+
+fn parse_rules(tree: &[Token]) -> Vec<Rule> {
+	let mut pos = 0;
+	let mut rules: Vec<Rule> = Vec::new();
+	loop {
+		let mut seq: Vec<RuleItem> = Vec::new();
+		loop {
+			match tree[pos].content {
+				Tok(Identifier(ref s)) => {
+					seq.push(Sym(s.clone()));
+					pos += 1;
+				},
+				Tok(Char(c)) => {
+					seq.push(Chr(c));
+					pos += 1;
+				},
+				Tree('}', _) => {
+					rules.push(Rule {
+						seq: seq,
+						rule: tree[pos].clone()
+					});
+					pos += 1;
+					break;
+				},
+				_ => fail!()
+			}
+		}
+		if pos == tree.len() {
+			return rules;
+		}
+	}
 }
 
 fn parse_grammar(tree: &[Token]) -> Grammar {
@@ -30,6 +76,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 	};
 	let mut pos = 0;
 	loop {
+		println!("*");
 		match match tree[pos].content {
 			Tok(ref x) => x,
 			Tree(..) => fail!()
@@ -43,9 +90,29 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 					Tok(Identifier(ref id)) => if !grammar.terms.insert(id.clone()) { fail!() },
 					_ => fail!()
 				}
+				pos += 1;
 			},
-			&Identifier(_) => {
-				fail!();
+			&Identifier(ref name) => {
+				pos += 1;
+				let type_ = match tree[pos].content {
+					Tree('}', _) => Vec::new(),
+					Tree(')', ref x @ _) => {
+						pos +=1;
+						x.clone()
+					},
+					_ => fail!()
+				};
+				let rules = match tree[pos].content {
+					Tree('}', ref t @ _) => {
+						pos += 1;
+						parse_rules(t.as_slice())
+					},
+					_ => fail!()
+				};
+				grammar.nterms.insert(name.clone(), NTerm {
+					type_: type_,
+					rules: rules
+				});
 			},
 			_ => fail!()
 		}
@@ -71,4 +138,5 @@ fn main() {
 		Err(e) => fail!("{}", e)
 	};
 	println!("{}", tree);
+	println!("{}", parse_grammar(tree.as_slice()));
 }
