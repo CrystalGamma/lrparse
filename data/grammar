@@ -1,8 +1,10 @@
 #{
-// prelude
+use lexer::Token;
 },
+#Term(uint)
 NTerm(uint) {
 	{ (0u) },
-	Nterm 'c' => { let (inner, _) = symbols; (1+inner) },
+	NTerm 'c' => { let (inner, _) = symbols; 1+inner },
+	NTerm Term => { let (inner, val) = symbols; inner+val }
 }
 	
