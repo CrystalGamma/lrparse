@@ -86,10 +86,10 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 		nterms: HashMap::new(),
 		rules: Vec::new(),
 	};
-	grammar.terms.insert("EOF_".to_string(),Token {
+	/*grammar.terms.insert("EOF_".to_string(),Token {
 			content: Tree(')', Vec::new()),
 			ref_: CodeReference::internal()
-		});
+		});*/
 	grammar.nterms.insert("Accept_".to_string(), NTerm {
 		type_: Token {
 			content: Tree('}', Vec::new()),
@@ -147,7 +147,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 						content: Tree('}', Vec::new()),	// TODO
 						ref_: CodeReference::internal()
 					},
-					Tree(')', ref t @ _) => {
+					Tree(')',  _) => {
 						pos +=1;
 						tree[pos-1].clone()
 					},
@@ -189,15 +189,9 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 }
 
 #[deriving(Show)]
-enum Action {
-	Shift(uint),
-// 	Reduce(uint)
-}
-
-#[deriving(Show)]
 struct Node {
 	state: Vec<(uint,uint)>,	// (rule, position)
-	actions: HashMap<RuleItem, Action>,
+	shifts: HashMap<RuleItem, uint>,
 	reduce: Option<uint>
 }
 
@@ -235,15 +229,49 @@ fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
 	}
 }
 
+fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Node>) {
+	let mut newstate: Vec<(uint,uint)> = (*nodes)[pos].state.iter().filter(|&&(rule, p): &&(uint, uint)| {
+			let r = &grammar.rules[rule];
+			if r.seq.len() <= p {
+				return false;
+			}
+			r.seq[p] == item
+		}).map(|&(rule, p): &(uint, uint)| (rule, p + 1)).collect();
+	fill_up_state(&mut newstate, grammar);
+	if nodes.iter().any(|nod: &Node| {
+		if nod.state.len() != newstate.len() {
+			return false;
+		}
+		for state in nod.state.iter() {
+			if !newstate.contains(state) {
+				return false;
+			}
+		}
+		true
+	}) {
+		return;
+	}
+	let idx = nodes.len();
+	nodes.get_mut(pos).shifts.insert(item, idx);
+	println!("{}", newstate);
+	nodes.push(Node {
+		state: newstate,
+		shifts: HashMap::new(),
+		reduce: None
+	});
+}
+
 fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 	let mut nodes: Vec<Node> = Vec::new();
 	let mut st = vec![(0,0)];
 	fill_up_state(&mut st, grammar);
 	nodes.push(Node {
 		state: st,
-		actions: HashMap::new(),
+		shifts: HashMap::new(),
 		reduce: None
 	});
+	let start = grammar.rules[0].seq[0].clone();
+	derive_node(grammar, 0, start, &mut nodes);	// enforce the accept state always being node #1
 	let mut pos = 0u;	// can't use iterator here because we write to the vector
 	loop {
 		let mut shifts: HashSet<RuleItem> = HashSet::new();
@@ -269,35 +297,7 @@ fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 		}
 		}
 		for item in shifts.into_iter() {
-			let mut newstate: Vec<(uint,uint)> = nodes[pos].state.iter().filter(|&&(rule, p): &&(uint, uint)| {
-					let r = &grammar.rules[rule];
-					if r.seq.len() <= p {
-						return false;
-					}
-					r.seq[p] == item
-				}).map(|&(rule, p): &(uint, uint)| (rule, p + 1)).collect();
-			fill_up_state(&mut newstate, grammar);
-			if nodes.iter().any(|nod: &Node| {
-				if nod.state.len() != newstate.len() {
-					return false;
-				}
-				for state in nod.state.iter() {
-					if !newstate.contains(state) {
-						return false;
-					}
-				}
-				true
-			}) {
-				continue;
-			}
-			let idx = nodes.len();
-			nodes.get_mut(pos).actions.insert(item, Shift(idx));
-			println!("{}", newstate);
-			nodes.push(Node {
-				state: newstate,
-				actions: HashMap::new(),
-				reduce: None
-			});
+			derive_node(grammar, pos, item, &mut nodes);
 		}
 		pos += 1;
 		if pos == nodes.len() {
@@ -307,10 +307,11 @@ fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 }
 
 fn assign_numbers(nodes: &Vec<Node>, grammar: &Grammar) -> (HashMap<RuleItem, uint>, uint) {
-	let mut cur_id = 0u;
+	let mut cur_id = 1u;
 	let mut ids: HashMap<RuleItem, uint> = HashMap::new();
+	ids.insert(Sym("$eof".to_string()), 0);
 	for node in nodes.iter() {
-		for (item, _) in node.actions.iter() {
+		for (item, _) in node.shifts.iter() {
 			if ids.insert(item.clone(), cur_id) {
 				println!("{}: {}", item, cur_id);
 				cur_id += 1;
@@ -323,26 +324,102 @@ fn assign_numbers(nodes: &Vec<Node>, grammar: &Grammar) -> (HashMap<RuleItem, ui
 
 fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, uint>, num_symbols: uint, grammar: &Grammar)
 		-> IoResult<()> {
-	let mut out = try!(File::open_mode(filename, Truncate, Write));
-	try!(grammar.prelude.iter().pretty_print(&mut out, 0, false));
-	/*try!(out.write_str("enum Token {
-	Other(char)"));
-	for (item, _) in mapping.iter() {
-		match item {
-			&Chr(_) => {},
-			&Sym(ref s) => {
-				try!(out.write_str(",\n\t"));
-				try!(out.write_str(s.as_slice()));
-				try!(out.write_char('('));
-				try!(match grammar.nterms.find(s) {
-					Some(ref x) => x.type_.pretty_print_token(&mut out, 1),
-					None => grammar.terms[s.clone()].pretty_print_token(&mut out, 1)
-				});
-				try!(out.write_char(')'));
-			}
+	let mut file = try!(File::open_mode(filename, Truncate, Write));
+	let out = &mut file;
+	try!(grammar.prelude.iter().pretty_print(out, 0, false));
+	try!(out.write_str("\nstatic table: &[uint] = &["));
+	let num_rules = grammar.rules.len();
+	for node in nodes.into_iter() {
+		let mut line: Vec<uint> = Vec::with_capacity(num_symbols);
+		line.grow(num_symbols, match node.reduce {
+			Some(x) => x + 1,
+			None => 0u
+		});
+		for (shift, target) in node.shifts.into_iter() {
+			line[mapping[shift]]= target + num_rules;
+		}
+		println!("{}", line);
+		try!(out.write_str("\n"));
+		for num in line.into_iter() {
+			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args), "{:8u},", num));
 		}
 	}
-	out.write_str("\n}")*/
+	try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+		"\nstatic NUM_RULES = {}u;\nstatic NUM_SYMBOLS = {}u;\n", grammar.rules.len(), num_symbols));
+	try!(out.write_str("];
+pub struct Parser {
+	stack: Vec<(uint, Token)>,
+}
+
+impl Parser {
+	pub fn new() {
+		Parser {stack: vec![(0u, Other('#')]}
+	}
+	fn get_token_id(tok: &Token) -> uint {
+		match tok {"));
+	for (item, id) in mapping.into_iter() {
+		match item {
+			Chr(c @ _) => {
+				try!(out.write_str("\n\t\t\tOther"));
+				try!(Token::internal(Tree(')',
+					vec![Token::internal(Tok(Char(c)))])).pretty_print_token(out, 1));
+				try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+					" => {},", id));
+			},
+			Sym(ref s) if id != 0 => {
+				try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+					"\n\t\t\t{}(_) => {},", s, id));
+			}
+			_ => {}
+		}
+	}
+	try!(out.write_str("\n\t\t\t_ => fail!(\"unknown token used in parser\")
+		}
+	}
+	pub fn consume_token(&mut self, tok: Token) -> Result<(),()> {
+		let &(mut state, _) = match self.stack.top();
+		loop {
+			let action = table[state*NUM_SYMBOLS + get_token_id(&tok)];
+			if action > NUM_RULES {
+				self.stack.push((action-NUM_RULES-1, tok));
+				return Ok(());
+			}
+			try!(self.reduce(action));
+			let &(st, _) = match self.stack.top();
+			state = st;
+		}
+	}
+	fn reduce(&mut self, rule: uint) {
+		match rule {
+			0 => Err(()),"));
+	let mut rule_id = 0u;
+	for rule in grammar.rules.iter() {
+		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+			"\n\t\t\t{} => {}", rule_id + 1, '{'));
+		let len = rule.seq.len();
+		for i in range(0, len) {
+			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+				"\n\t\t\t\tlet sym{} = match self.stack.pop() {} {}(x) => x, _ => fail!() {};",
+				len - i - 1, '{', match rule.seq[len - i - 1] {
+					Chr(_) => "Other".to_string(),
+					Sym(ref s) => s.clone()
+				}, '}'));
+		}
+		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+			"\n\t\t\t\ttry!(self.rule{}((", rule_id));
+		for i in range(0, len) {
+			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+				"sym{}, ", i));
+		}
+		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
+			")))\n\t\t\t{},", '}'));
+		rule_id += 1;
+	}
+	try!(out.write_str("
+			_ => fail!()
+		}
+	}
+}"));
 	Ok(())
 }
 
