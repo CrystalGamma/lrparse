@@ -63,7 +63,7 @@ fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (u
 				Tok(Arrow) => { 
 					pos += 1;
 				}
-				_ => fail!()
+				_ => panic!()
 			}
 		}
 		if pos != tree.len() {
@@ -111,7 +111,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 		println!("*");
 		match match tree[pos].content {
 			Tok(ref x) => x,
-			Tree(..) => fail!()
+			Tree(..) => panic!()
 		} {
 			&Other('#') => {
 				pos += 1;
@@ -124,7 +124,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 						pos += 1;
 						match tree[pos].content {
 							Tree(')', _) => if !grammar.terms.insert(id.clone(), tree[pos].clone()) {
-								fail!() 
+								panic!() 
 							} else {
 								pos += 1;
 							},
@@ -132,11 +132,11 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 								content: Tree('}', Vec::new()),
 								ref_: CodeReference::internal()
 							}) {
-								fail!();
+								panic!();
 							}
 						}
 					}
-					_ => fail!()
+					_ => panic!()
 				}
 			},
 			&Identifier(ref name) => {
@@ -151,7 +151,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 						pos +=1;
 						tree[pos-1].clone()
 					},
-					_ => fail!()
+					_ => panic!()
 				};
 				match tree[pos].content {
 					Tree('}', ref t @ _) => {
@@ -159,7 +159,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 						if startsymbol {
 							match grammar.nterms.find_mut(&"Accept_".to_string()) {
 								Some(x) => { x.type_ = type_.clone(); }
-								None => fail!()
+								None => panic!()
 							}
 							grammar.rules[0].seq = vec![Sym(name.clone())];
 							startsymbol = false;
@@ -170,10 +170,10 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 						};
 						grammar.nterms.insert(name.clone(), nterm);
 					},
-					_ => fail!()
+					_ => panic!()
 				}
 			},
-			_ => fail!()
+			_ => panic!()
 		}
 		if pos != tree.len() {
 			match tree[pos].content {
@@ -213,7 +213,7 @@ fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
 						None => {
 							match grammar.terms.find(s) {
 								Some(_) => {},
-								None => fail!("rule {} ({}) refers to unknown symbol {}",
+								None => panic!("rule {} ({}) refers to unknown symbol {}",
 										r, rule, s)
 							}
 						}
@@ -252,7 +252,7 @@ fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Nod
 		return;
 	}
 	let idx = nodes.len();
-	nodes.get_mut(pos).shifts.insert(item, idx);
+	nodes[pos].shifts.insert(item, idx);
 	println!("{}", newstate);
 	nodes.push(Node {
 		state: newstate,
@@ -276,7 +276,7 @@ fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 	loop {
 		let mut shifts: HashSet<RuleItem> = HashSet::new();
 		{
-		let node = nodes.get_mut(pos);
+		let node = &mut nodes[pos];
 		println!("Node {}: {}", pos, node);
 		for &(rule, p) in node.state.iter() {
 			let r = &grammar.rules[rule];
@@ -285,7 +285,7 @@ fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 			} else {
 				match node.reduce {
 					None => { node.reduce = Some(rule); }
-					Some(x) => fail!("Reduce-Reduce conflict in node {} ({}) between rule {} ({}) and {} ({})",
+					Some(x) => panic!("Reduce-Reduce conflict in node {} ({}) between rule {} ({}) and {} ({})",
 						pos, node, x, grammar.rules[x], rule, r)
 				}
 			}
@@ -374,35 +374,44 @@ impl Parser {
 			_ => {}
 		}
 	}
-	try!(out.write_str("\n\t\t\t_ => fail!(\"unknown token used in parser\")
+	try!(out.write_str("\n\t\t\t_ => panic!(\"unknown token used in parser\")
 		}
 	}
 	pub fn consume_token(&mut self, tok: Token) -> Result<(),()> {
 		let tok_id = Parser::get_token_id(&tok);
 		try!(self.do_reduces(tok_id));
-		let &(state, _) = match self.stack.last() {Some(x) => x, None => fail!()};
+		let &(state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 		self.stack.push((table[state*NUM_SYMBOLS + tok_id]-NUM_RULES-1, tok));
 		Ok(())
 	}
 	fn do_reduces(&mut self, tok_id: uint) -> Result<(), ()> {
-		let &(mut state, _) = match self.stack.last() {Some(x) => x, None => fail!()};
+		let &(mut state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 		loop {
 			let action = table[state*NUM_SYMBOLS + tok_id];
 			if action > NUM_RULES {
 				return Ok(());
 			}
 			try!(self.reduce(action));
-			let &(st, _) = match self.stack.last() {Some(x) => x, None => fail!()};
+			let &(st, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 			state = st;
 		}
 	}
 	fn reduce(&mut self, rule: uint) -> Result<(), ()> {
 		match match rule {
-			0 => Err(()),"));
+			0 => Err(()),
+			1 => {
+				let sym = match self.stack.pop() { Some((_, "));
+	try!(out.write_str(match grammar.rules[0].seq[0] {
+		Sym(ref x) => x,
+		_ => panic!()
+	}.as_slice()));
+	try!(out.write_str("(x))) => x, _ => panic!() };
+				Ok((1, Accept_(sym)))
+			},"));
 	let mut rule_id = 1u;
 	for rule in grammar.rules.iter() {
 		if rule_id == 1u {
-			rule_id += 1u;
+			rule_id += 1;
 			continue;
 		}
 		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
@@ -410,7 +419,7 @@ impl Parser {
 		let len = rule.seq.len();
 		for i in range(0, len) {
 			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
-				"\n\t\t\t\tlet sym{} = match self.stack.pop() {} Some((_, {}(x))) => x, _ => fail!() {};",
+				"\n\t\t\t\tlet sym{} = match self.stack.pop() {} Some((_, {}(x))) => x, _ => panic!() {};",
 				len - i - 1, '{', match rule.seq[len - i - 1] {
 					Chr(_) => "Other".to_string(),
 					Sym(ref s) => s.clone()
@@ -427,10 +436,10 @@ impl Parser {
 		rule_id += 1;
 	}
 	try!(out.write_str("
-			_ => fail!()
+			_ => panic!()
 		} {
 			Ok((id, x)) => {
-				let &(st, _) = match self.stack.last() {Some(x) => x, None => fail!()};
+				let &(st, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 				let goto = table[st * NUM_SYMBOLS + id] - NUM_RULES;
 				self.stack.push((goto, x));
 				Ok(())
@@ -466,6 +475,15 @@ impl Parser {
 		rule_id += 1;
 	}
 	try!(out.write_str("
+	pub fn end_parse(mut self) -> Result<"));
+	try!(grammar.nterms["Accept_".to_string()].type_.pretty_print_token(out, 1));
+	try!(out.write_str(", ()> {
+		try!(self.do_reduces(0));	// EOF
+		match self.stack.pop() {
+			Some((_, Accept_(x))) => Ok(x),
+			_ => Err(())
+		}
+	}
 }"));
 	Ok(())
 }
@@ -474,19 +492,19 @@ fn main() {
 	let path = Path::new("data/grammar");
 	let file = match File::open(&path) {
 		Ok(x) => x,
-		Err(e) => fail!("file could not be opened: {}", e)
+		Err(e) => panic!("file could not be opened: {}", e)
 	};
 	let lex = match Lexer::new(BufferedReader::new(file)) {
 		Ok(x) => x,
-		Err(e) => fail!("lexer could not be initialised: {}", e)
+		Err(e) => panic!("lexer could not be initialised: {}", e)
 	};
 	let tree = match nesting(lex, "data/grammar".to_string()) {
 		Ok(x) => x,
-		Err(e) => fail!("{}", e)
+		Err(e) => panic!("{}", e)
 	};
 	match tree.iter().pretty_print(&mut std::io::stdio::stdout(), 0, true) {
 		Ok(_) => {},
-		Err(e) => fail!("{}", e)
+		Err(e) => panic!("{}", e)
 	}
 	let grammar = parse_grammar(tree.as_slice());
 	println!("{}", grammar);
@@ -495,6 +513,6 @@ fn main() {
 	let (mapping, num_symbols) = assign_numbers(&nodes, &grammar);
 	match write_parser(&Path::new("out.rs"), nodes, mapping, num_symbols, &grammar) {
 		Ok(()) => {},
-		Err(e) => fail!("could not write grammar: {}", e)
+		Err(e) => panic!("could not write grammar: {}", e)
 	}
 }
