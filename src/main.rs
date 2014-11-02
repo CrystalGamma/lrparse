@@ -307,9 +307,10 @@ fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 }
 
 fn assign_numbers(nodes: &Vec<Node>, grammar: &Grammar) -> (HashMap<RuleItem, uint>, uint) {
-	let mut cur_id = 1u;
+	let mut cur_id = 2u;
 	let mut ids: HashMap<RuleItem, uint> = HashMap::new();
 	ids.insert(Sym("$eof".to_string()), 0);
+	ids.insert(Sym("Accept_".to_string()), 1);
 	for node in nodes.iter() {
 		for (item, _) in node.shifts.iter() {
 			if ids.insert(item.clone(), cur_id) {
@@ -336,7 +337,15 @@ fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, ui
 			None => 0u
 		});
 		for (shift, target) in node.shifts.into_iter() {
-			line[mapping[shift]]= target + num_rules;
+			let tok_id = mapping[shift];
+			match shift {
+				Chr(_) => { line[tok_id] = target + num_rules + 1; continue; },
+				Sym(ref s) => match grammar.nterms.find(s) {
+					None => { line[tok_id] = target + num_rules + 1; }
+					Some(_) => { line[tok_id] = target; }
+				}
+			}
+			
 		}
 		println!("{}", line);
 		try!(out.write_str("\n"));
@@ -385,15 +394,13 @@ impl Parser {
 		Ok(())
 	}
 	fn do_reduces(&mut self, tok_id: uint) -> Result<(), ()> {
-		let &(mut state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 		loop {
+			let &(state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 			let action = table[state*NUM_SYMBOLS + tok_id];
 			if action > NUM_RULES {
 				return Ok(());
 			}
 			try!(self.reduce(action));
-			let &(st, _) = match self.stack.last() {Some(x) => x, None => panic!()};
-			state = st;
 		}
 	}
 	fn reduce(&mut self, rule: uint) -> Result<(), ()> {
@@ -406,7 +413,8 @@ impl Parser {
 		_ => panic!()
 	}.as_slice()));
 	try!(out.write_str("(x))) => x, _ => panic!() };
-				Ok((1, Accept_(sym)))
+				self.stack.push((1, Accept_(sym)));
+				return Ok(());
 			},"));
 	let mut rule_id = 1u;
 	for rule in grammar.rules.iter() {
@@ -440,7 +448,8 @@ impl Parser {
 		} {
 			Ok((id, x)) => {
 				let &(st, _) = match self.stack.last() {Some(x) => x, None => panic!()};
-				let goto = table[st * NUM_SYMBOLS + id] - NUM_RULES;
+				let goto = table[st * NUM_SYMBOLS + id];
+				println!(\"state {}, goto {}\", st, goto);
 				self.stack.push((goto, x));
 				Ok(())
 			},
@@ -478,10 +487,14 @@ impl Parser {
 	pub fn end_parse(mut self) -> Result<"));
 	try!(grammar.nterms["Accept_".to_string()].type_.pretty_print_token(out, 1));
 	try!(out.write_str(", ()> {
-		try!(self.do_reduces(0));	// EOF
-		match self.stack.pop() {
-			Some((_, Accept_(x))) => Ok(x),
-			_ => Err(())
+		loop {
+			let state = match self.stack.last() {
+				Some(&(_, Accept_(x))) => return Ok(x),
+				Some(&(x, _)) => x,
+				None => panic!()
+			};
+			let action = table[state*NUM_SYMBOLS];
+			try!(self.reduce(action));
 		}
 	}
 }"));
