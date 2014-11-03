@@ -1,10 +1,30 @@
-#{
-use lexer::{Token, Other, Accept_, Term, NTerm};
-},
-#Term(uint)
-NTerm(uint) {
-	{ Ok(0u) },
-	NTerm 'c' => { let (inner, _) = symbols; Ok(1+inner) },
-	NTerm Term => { let (inner, val) = symbols; Ok(inner+val) }
+#Identifier(String)
+#Fn
+
+
+RustFile{
+	{Ok(())},
+	RustFile Function {Ok(())}
 }
-	
+
+Function {
+	Fn Identifier '(' Parameters ')' {Ok(())}
+}
+
+Parameters {
+	{Ok(())}
+	Parameters ',' Pattern {Ok(())}
+}
+
+Pattern {
+	PatternInner {Ok(())}
+	PatternInner ':' Type {Ok(())}
+}
+
+PatternInner {
+	Identifier {Ok(())}
+}
+
+Type {
+	Identifier {Ok(())}
+}

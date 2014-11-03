@@ -86,10 +86,6 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 		nterms: HashMap::new(),
 		rules: Vec::new(),
 	};
-	/*grammar.terms.insert("EOF_".to_string(),Token {
-			content: Tree(')', Vec::new()),
-			ref_: CodeReference::internal()
-		});*/
 	grammar.nterms.insert("Accept_".to_string(), NTerm {
 		type_: Token {
 			content: Tree('}', Vec::new()),
@@ -328,7 +324,27 @@ fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, ui
 	let mut file = try!(File::open_mode(filename, Truncate, Write));
 	let out = &mut file;
 	try!(grammar.prelude.iter().pretty_print(out, 0, false));
-	try!(out.write_str("\nstatic table: &'static [uint] = &["));
+	try!(out.write_str("struct Token {
+		Other(char)"));
+	for (item, _) in mapping.iter() {
+		if item == &Sym("$eof".to_string()) {
+			continue;
+		}
+		match item {
+			&Chr(_) => {},
+			&Sym(ref s) => {
+				println!("{}", s);
+				try!(out.write_str(",\n\t"));
+				try!(out.write_str(s.as_slice()));
+				match grammar.nterms.find(s) {
+					Some(ref x) => try!(x.type_.pretty_print_token(out, 1)),
+					None => try!(grammar.terms[*s].pretty_print_token(out, 1))
+				}
+			}
+		}
+	}
+	try!(out.write_str("}
+static TABLE: &'static [uint] = &["));
 	let num_rules = grammar.rules.len();
 	for node in nodes.into_iter() {
 		let mut line: Vec<uint> = Vec::with_capacity(num_symbols);
@@ -390,13 +406,13 @@ impl Parser {
 		let tok_id = Parser::get_token_id(&tok);
 		try!(self.do_reduces(tok_id));
 		let &(state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
-		self.stack.push((table[state*NUM_SYMBOLS + tok_id]-NUM_RULES-1, tok));
+		self.stack.push((TABLE[state*NUM_SYMBOLS + tok_id]-NUM_RULES-1, tok));
 		Ok(())
 	}
 	fn do_reduces(&mut self, tok_id: uint) -> Result<(), ()> {
 		loop {
 			let &(state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
-			let action = table[state*NUM_SYMBOLS + tok_id];
+			let action = TABLE[state*NUM_SYMBOLS + tok_id];
 			if action > NUM_RULES {
 				return Ok(());
 			}
@@ -448,7 +464,7 @@ impl Parser {
 		} {
 			Ok((id, x)) => {
 				let &(st, _) = match self.stack.last() {Some(x) => x, None => panic!()};
-				let goto = table[st * NUM_SYMBOLS + id];
+				let goto = TABLE[st * NUM_SYMBOLS + id];
 				println!(\"state {}, goto {}\", st, goto);
 				self.stack.push((goto, x));
 				Ok(())
