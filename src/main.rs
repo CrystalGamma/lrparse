@@ -66,6 +66,7 @@ fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (u
 				_ => panic!()
 			}
 		}
+		println!("rule {}: {}", grammar.rules.len() - 1, grammar.rules.last());
 		if pos != tree.len() {
 			match tree[pos].content {
 				Tok(Other(',')) => { pos += 1; },
@@ -192,8 +193,10 @@ struct Node {
 }
 
 fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
-	let mut newentries: HashSet<uint> = HashSet::new();
-	for &(r, pos) in state.iter() {
+	let mut idx = 0;
+	while idx < state.len() {	// we want to append to the array as we go, so no iterator :(
+		let (r, pos) = state[idx];
+		idx += 1;
 		let rule = &grammar.rules[r];
 		if rule.seq.len() > pos {
 			match rule.seq[pos] {
@@ -203,7 +206,9 @@ fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
 						Some(ref sym) => {
 							let (start, end) = sym.rules;
 							for i in range(start,end) {
-								newentries.insert(i);
+								if !state.contains(&(i, 0u)) {
+									state.push((i, 0u));
+								}
 							}
 						}
 						None => {
@@ -218,14 +223,10 @@ fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
 			}
 		}
 	}
-	for rule in newentries.into_iter() {
-		if !state.iter().any(|&(r, pos): &(uint, uint)| r == rule && pos == 0u) {
-			state.push((rule, 0u));
-		}
-	}
 }
 
 fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Node>) {
+	print!("deriving by {}: ", item);
 	let mut newstate: Vec<(uint,uint)> = (*nodes)[pos].state.iter().filter(|&&(rule, p): &&(uint, uint)| {
 			let r = &grammar.rules[rule];
 			if r.seq.len() <= p {
@@ -277,7 +278,8 @@ fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 		for &(rule, p) in node.state.iter() {
 			let r = &grammar.rules[rule];
 			if r.seq.len() > p {
-				shifts.insert(r.seq[pos].clone());
+				println!("rule {}, shift by {}", rule, r.seq[p]);
+				shifts.insert(r.seq[p].clone());
 			} else {
 				match node.reduce {
 					None => { node.reduce = Some(rule); }
@@ -309,13 +311,24 @@ fn assign_numbers(nodes: &Vec<Node>, grammar: &Grammar) -> (HashMap<RuleItem, ui
 	ids.insert(Sym("Accept_".to_string()), 1);
 	for node in nodes.iter() {
 		for (item, _) in node.shifts.iter() {
-			if ids.insert(item.clone(), cur_id) {
+			println!("found {}", item);
+			if !ids.contains_key(item) {
+				ids.insert(item.clone(), cur_id);
 				println!("{}: {}", item, cur_id);
 				cur_id += 1;
 			}
 		}
 	}
-	// TODO: warn about unused symbols
+	for (term, _) in grammar.terms.iter() {
+		if !ids.contains_key(&Sym(term.clone())) {
+			println!("Warning: unused terminal symbol {}", term);
+		}
+	}
+	for (nterm, _) in grammar.nterms.iter() {
+		if !ids.contains_key(&Sym(nterm.clone())) {
+			println!("Warning: unused non-terminal symbol {}", nterm);
+		}
+	}
 	(ids, cur_id)
 }
 
@@ -540,6 +553,7 @@ fn main() {
 	let nodes = create_nodes(&grammar);
 	println!("{}", nodes);
 	let (mapping, num_symbols) = assign_numbers(&nodes, &grammar);
+	println!("mapping: {}", mapping);
 	match write_parser(&Path::new("out.rs"), nodes, mapping, num_symbols, &grammar) {
 		Ok(()) => {},
 		Err(e) => panic!("could not write grammar: {}", e)
