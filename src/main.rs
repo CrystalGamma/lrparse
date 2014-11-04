@@ -364,8 +364,7 @@ fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, ui
 	let mut file = try!(File::open_mode(filename, Truncate, Write));
 	let out = &mut file;
 	try!(grammar.prelude.iter().pretty_print(out, 0, false));
-	try!(out.write_str("#[deriving(Show,Clone)]
-pub enum Token {
+	try!(out.write_str("pub enum Token {
 	Other(char)"));
 	for (item, _) in mapping.iter() {
 		if item == &Sym("$eof".to_string()) {
@@ -410,9 +409,7 @@ static TABLE: &'static [uint] = &["));
 	}
 	try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
 		"];\nstatic NUM_RULES: uint = {}u;\nstatic NUM_SYMBOLS: uint = {}u;\n", grammar.rules.len(), num_symbols));
-	try!(out.write_str("
-#[deriving(Show)]
-pub struct Parser {
+	try!(out.write_str("pub struct Parser {
 	stack: Vec<(uint, Token)>,
 }
 
@@ -550,7 +547,6 @@ impl Parser {
 			Ok((id, x)) => {
 				let &(st, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 				let goto = TABLE[st * NUM_SYMBOLS + id];
-				println!(\"state {}, goto {}\", st, goto);
 				self.stack.push((goto, x));
 				Ok(())
 			},
