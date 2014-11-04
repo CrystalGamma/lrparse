@@ -23,14 +23,14 @@ struct Rule {
 
 #[deriving(Show)]
 struct NTerm {
-	type_: Token,
+	type_: Vec<Token>,
 	rules: (uint, uint)
 }
 
 #[deriving(Show)]
 struct Grammar {
 	prelude: Vec<Token>,
-	terms: HashMap<String, Token>,
+	terms: HashMap<String, Vec<Token>>,
 	chars: HashSet<char>,
 	nterms: HashMap<String, NTerm>,
 	rules: Vec<Rule>
@@ -88,10 +88,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 		rules: Vec::new(),
 	};
 	grammar.nterms.insert("Accept_".to_string(), NTerm {
-		type_: Token {
-			content: Tree('}', Vec::new()),
-			ref_: CodeReference::internal()
-		},
+		type_: Vec::new(),
 		rules: (0u, 1u)
 	});
 	grammar.rules.push(Rule {
@@ -120,15 +117,12 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 					Tok(Identifier(ref id)) => {
 						pos += 1;
 						match tree[pos].content {
-							Tree(')', _) => if !grammar.terms.insert(id.clone(), tree[pos].clone()) {
+							Tree(')', ref t @ _) => if !grammar.terms.insert(id.clone(), t.clone()) {
 								panic!() 
 							} else {
 								pos += 1;
 							},
-							_ => if !grammar.terms.insert(id.clone(), Token {
-								content: Tree('}', Vec::new()),
-								ref_: CodeReference::internal()
-							}) {
+							_ => if !grammar.terms.insert(id.clone(), Vec::new()) {
 								panic!();
 							}
 						}
@@ -140,13 +134,10 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 				pos += 1;
 				let arc = Arc::new(name.clone());
 				let type_ = match tree[pos].content {
-					Tree('}', _) => Token {
-						content: Tree('}', Vec::new()),	// TODO
-						ref_: CodeReference::internal()
-					},
-					Tree(')',  _) => {
+					Tree('}', _) => Vec::new(),
+					Tree(')',  ref t @ _) => {
 						pos +=1;
-						tree[pos-1].clone()
+						t.clone()
 					},
 					_ => panic!()
 				};
@@ -332,13 +323,49 @@ fn assign_numbers(nodes: &Vec<Node>, grammar: &Grammar) -> (HashMap<RuleItem, ui
 	(ids, cur_id)
 }
 
+fn get_type<'a>(sym: &String, grammar: &'a Grammar) -> &'a Vec<Token> {
+	match grammar.nterms.find(sym) {
+		Some(ref x) => &x.type_,
+		None => &grammar.terms[*sym]
+	}
+}
+
+fn write_type<W: Writer>(out: &mut W, sym: &String, grammar: &Grammar, indent: uint) -> IoResult<bool> {
+	let type_ = get_type(sym, grammar);
+	if type_.len() != 0 {
+		try!(actual_write_type(out, type_, indent));
+		return Ok(true);
+	}
+	Ok(false)
+}
+
+fn actual_write_type<W: Writer>(out: &mut W, typ: &Vec<Token>, indent: uint) -> IoResult<()> {
+	try!(out.write_str("("));
+	try!(typ.iter().pretty_print(out, indent, false));
+	out.write_str(")")
+}
+
+fn write_pattern<W: Writer>(out: &mut W, sym: &String, grammar: &Grammar, var: &str) -> IoResult<bool> {
+	let typ = get_type(sym, grammar);
+	actual_write_pattern(out, sym, typ, var)
+}
+
+fn actual_write_pattern<W: Writer>(out: &mut W, sym: &String, typ: &Vec<Token>, var: &str) -> IoResult<bool> {
+	try!(out.write_str(sym.as_slice()));
+	if typ.len() != 0 {
+		try!(write!(out, "({})", var));
+		return Ok(true);
+	}
+	Ok(false)
+}
+
 fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, uint>, num_symbols: uint, grammar: &Grammar)
 		-> IoResult<()> {
 	let mut file = try!(File::open_mode(filename, Truncate, Write));
 	let out = &mut file;
 	try!(grammar.prelude.iter().pretty_print(out, 0, false));
-	try!(out.write_str("struct Token {
-		Other(char)"));
+	try!(out.write_str("enum Token {
+	Other(char)"));
 	for (item, _) in mapping.iter() {
 		if item == &Sym("$eof".to_string()) {
 			continue;
@@ -349,14 +376,12 @@ fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, ui
 				println!("{}", s);
 				try!(out.write_str(",\n\t"));
 				try!(out.write_str(s.as_slice()));
-				match grammar.nterms.find(s) {
-					Some(ref x) => try!(x.type_.pretty_print_token(out, 1)),
-					None => try!(grammar.terms[*s].pretty_print_token(out, 1))
-				}
+				try!(write_type(out, s, grammar, 1));
 			}
 		}
 	}
-	try!(out.write_str("}
+	try!(out.write_str("
+}
 static TABLE: &'static [uint] = &["));
 	let num_rules = grammar.rules.len();
 	for node in nodes.into_iter() {
@@ -406,8 +431,9 @@ impl Parser {
 					" => {},", id));
 			},
 			&Sym(ref s) if id != 0 => {
-				try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
-					"\n\t\t\t&{}(_) => {},", s, id));
+				try!(out.write_str("\n\t\t\t&"));
+				try!(write_pattern(out, s, grammar, "_"));
+				try!(write!(out,"=> {},", id));
 			}
 			_ => {}
 		}
@@ -436,13 +462,25 @@ impl Parser {
 		match match rule {
 			0 => Err(()),
 			1 => {
-				let sym = match self.stack.pop() { Some((_, "));
-	try!(out.write_str(match grammar.rules[0].seq[0] {
+				"));
+	let start_sym = match grammar.rules[0].seq[0] {
 		Sym(ref x) => x,
 		_ => panic!()
-	}.as_slice()));
-	try!(out.write_str("(x))) => x, _ => panic!() };
-				self.stack.push((1, Accept_(sym)));
+	};
+	let typ = get_type(start_sym, grammar);
+	if typ.len() != 0 {
+		try!(out.write_str("let sym = match self.stack.pop() { Some((_, "));
+		try!(actual_write_pattern(out, start_sym, typ, "x"));
+		try!(out.write_str(")) => x, _ => panic!() };
+				self.stack.push((1, Accept_(sym)));"));
+	} else {
+		try!(out.write_str("match self.stack.pop() {
+					Some((_, _)) => {},
+					_ => panic!()
+				}
+				self.stack.push((1, Accept_));"));
+	}
+	try!(out.write_str("
 				return Ok(());
 			},"));
 	let mut rule_id = 1u;
@@ -455,21 +493,49 @@ impl Parser {
 			"\n\t\t\t{} => {}", rule_id, '{'));
 		let len = rule.seq.len();
 		for i in range(0, len) {
-			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
-				"\n\t\t\t\tlet sym{} = match self.stack.pop() {} Some((_, {}(x))) => x, _ => panic!() {};",
-				len - i - 1, '{', match rule.seq[len - i - 1] {
-					Chr(_) => "Other".to_string(),
-					Sym(ref s) => s.clone()
-				}, '}'));
+			match rule.seq[len - i -1] {
+				Chr(_) => try!(out.write_str("
+				match self.stack.pop() { Some((_, Other(_))) => {}, _ => panic!() }")),
+				Sym(ref s) => {
+					let typ = get_type(s, grammar);
+					if typ.len() == 0 {
+						try!(out.write_str("
+				match self.stack.pop() { Some((_, "));
+						try!(out.write_str(s.as_slice()));
+						try!(out.write_str(")) => {}, _ => panic!() }"));
+						continue;
+					}
+					try!(write!(out, "
+				let sym{} = match self.stack.pop()", len - i - 1));
+					try!(out.write_str(" { Some((_, "));
+					try!(actual_write_pattern(out, s, typ, "x"));
+					try!(out.write_str(")) => x, _ => panic!() };"));
+				}
+			}
 		}
-		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
-			"\n\t\t\t\tOk(({}, {}(try!(self.rule{}((", mapping[Sym(rule.nterm.deref().clone())], rule.nterm, rule_id));
-		for i in range(0, len) {
+		let is_unit = grammar.nterms[*rule.nterm.deref()].type_.len() == 0;
+		if !is_unit {
+			try!(out.write_str("
+				let res = "));
+		}
+		try!(write!(out, "try!(self.rule{}((", rule_id));
+		for i in range(0, len).filter(|&i: &uint| get_type(match rule.seq[i] {
+			Chr(_) => return false,
+			Sym(ref s) => s
+		}, grammar).len() != 0) {
 			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
 				"sym{}, ", i));
 		}
-		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
-			"))))))\n\t\t\t{},", '}'));
+		try!(out.write_str(")))"));
+		if is_unit {
+			try!(write!(out, "
+				Ok(({}, {}))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+		} else {
+			try!(write!(out, ";
+				Ok(({}, {}(res)))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+		}
+		try!(out.write_str("
+			}"));
 		rule_id += 1;
 	}
 	try!(out.write_str("
@@ -485,44 +551,49 @@ impl Parser {
 			Err(e) => Err(e)
 		}
 	}"));
-	rule_id = 1;
-	for rule in grammar.rules.iter() {
-		if rule_id == 1u {
-			rule_id += 1u;
-			continue;
-		}
+	for rule_id in range(2, grammar.rules.len()) {	// FIXME: can't borrow grammar here
+		{
+		let rule = &grammar.rules[rule_id];
 		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
 			"\n\tfn rule{}(&mut self, symbols: (", rule_id));
 		let len = rule.seq.len();
 		for i in range(0u, len) {
 			match rule.seq[i] {
-				Chr(_) => try!(out.write_str("char, ")),
+				Chr(_) => {},
 				Sym(ref s) => {
-					match grammar.nterms.find(&s.to_string()) {
-						Some(x) => try!(x.type_.pretty_print_token(out, 1)),
-						_ => try!(grammar.terms[s.to_string()].pretty_print_token(out, 1))
+					if try!(write_type(out, s, grammar, 1)) {
+						try!(out.write_str(", "));
 					}
-					try!(out.write_str(", "));
 				}
 			}
 		}
+		}
 		try!(out.write_str(")) -> Result<"));
-		try!(grammar.nterms[rule.nterm.deref().clone()].type_.pretty_print_token(out, 1));
+		if !try!(write_type(out, grammar.rules[rule_id].nterm.deref(), grammar, 1)) {
+			try!(out.write_str("()"));
+		}
 		try!(out.write_str(", ()> "));
-		try!(rule.code.pretty_print_token(out, 1));
-		rule_id += 1;
+		try!(grammar.rules[rule_id].code.pretty_print_token(out, 1));
 	}
 	try!(out.write_str("
 	pub fn end_parse(mut self) -> Result<"));
-	try!(grammar.nterms["Accept_".to_string()].type_.pretty_print_token(out, 1));
+	if !try!(write_type(out, &"Accept_".to_string(), grammar, 1)) {
+		try!(out.write_str("()"));
+	}
 	try!(out.write_str(", ()> {
 		loop {
 			let state = match self.stack.last() {
-				Some(&(_, Accept_(x))) => return Ok(x),
+				Some(&(_, "));
+	if try!(write_pattern(out, &"Accept_".to_string(), grammar, "x")) {
+		try!(out.write_str(")) => Ok(x),"));
+	} else {
+		try!(out.write_str(")) => Ok(()),"));
+	}
+	try!(out.write_str("
 				Some(&(x, _)) => x,
 				None => panic!()
 			};
-			let action = table[state*NUM_SYMBOLS];
+			let action = TABLE[state*NUM_SYMBOLS];
 			try!(self.reduce(action));
 		}
 	}
