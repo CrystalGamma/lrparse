@@ -364,7 +364,8 @@ fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, ui
 	let mut file = try!(File::open_mode(filename, Truncate, Write));
 	let out = &mut file;
 	try!(grammar.prelude.iter().pretty_print(out, 0, false));
-	try!(out.write_str("enum Token {
+	try!(out.write_str("#[deriving(Show,Clone)]
+pub enum Token {
 	Other(char)"));
 	for (item, _) in mapping.iter() {
 		if item == &Sym("$eof".to_string()) {
@@ -483,14 +484,18 @@ impl Parser {
 	try!(out.write_str("
 				return Ok(());
 			},"));
-	let mut rule_id = 1u;
+	let mut rule_id = 0u;
 	for rule in grammar.rules.iter() {
-		if rule_id == 1u {
+		if rule_id == 0u {
 			rule_id += 1;
 			continue;
 		}
+		if !mapping.contains_key(&Sym(rule.nterm.deref().clone())) {
+			rule_id += 1;
+			continue;	// prevent crashes if nonterminal is not used / has no mapping
+		}
 		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
-			"\n\t\t\t{} => {}", rule_id, '{'));
+			"\n\t\t\t{} => {}", rule_id + 1, '{'));
 		let len = rule.seq.len();
 		for i in range(0, len) {
 			match rule.seq[len - i -1] {
@@ -514,9 +519,10 @@ impl Parser {
 			}
 		}
 		let is_unit = grammar.nterms[*rule.nterm.deref()].type_.len() == 0;
+		try!(out.write_str("
+				"));
 		if !is_unit {
-			try!(out.write_str("
-				let res = "));
+			try!(out.write_str("let res = "));
 		}
 		try!(write!(out, "try!(self.rule{}((", rule_id));
 		for i in range(0, len).filter(|&i: &uint| get_type(match rule.seq[i] {
@@ -551,9 +557,12 @@ impl Parser {
 			Err(e) => Err(e)
 		}
 	}"));
-	for rule_id in range(2, grammar.rules.len()) {	// FIXME: can't borrow grammar here
+	for rule_id in range(1, grammar.rules.len()) {	// FIXME: can't borrow grammar here
 		{
 		let rule = &grammar.rules[rule_id];
+		if !mapping.contains_key(&Sym(rule.nterm.deref().clone())) {
+			continue;	// prevent crashes if nonterminal is not used / has no mapping
+		}
 		try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
 			"\n\tfn rule{}(&mut self, symbols: (", rule_id));
 		let len = rule.seq.len();
@@ -585,9 +594,9 @@ impl Parser {
 			let state = match self.stack.last() {
 				Some(&(_, "));
 	if try!(write_pattern(out, &"Accept_".to_string(), grammar, "x")) {
-		try!(out.write_str(")) => Ok(x),"));
+		try!(out.write_str(")) => return Ok(x),"));
 	} else {
-		try!(out.write_str(")) => Ok(()),"));
+		try!(out.write_str(")) => return Ok(()),"));
 	}
 	try!(out.write_str("
 				Some(&(x, _)) => x,

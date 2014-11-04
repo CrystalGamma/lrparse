@@ -1,23 +1,32 @@
-#Identifier(String)
+#Identifier(&'static str)
 #Fn
-
+#Returns	// ->
 
 RustFile{
 	{Ok(())},
-	RustFile Function {Ok(())}
+	RustFile FunctionDefinition {Ok(())}
 }
 
-Function {
-	Fn Identifier '(' Parameters ')' {Ok(())}
+FunctionDeclaration {
+	Fn Identifier '(' Parameters ')' ReturnType {Ok(())}
+}
+
+FunctionDefinition {
+	FunctionDeclaration CodeBlock {Ok(())}
+}
+
+ReturnType {
+	{Ok(())},
+	Returns Type {Ok(())}
 }
 
 Parameters {
-	{Ok(())}
+	{Ok(())},
 	Parameters ',' Pattern {Ok(())}
 }
 
 Pattern {
-	PatternInner {Ok(())}
+	PatternInner {Ok(())},
 	PatternInner ':' Type {Ok(())}
 }
 
@@ -27,4 +36,13 @@ PatternInner {
 
 Type {
 	Identifier {Ok(())}
+}
+
+CodeBlock {
+	'{' Statements '}' {Ok(())},
+//	'{' Statements Expression '}' {Ok(())}
+}
+
+Statements {
+	{Ok(())}
 }
