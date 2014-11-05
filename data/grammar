@@ -1,3 +1,22 @@
+#{
+#[deriving(Show)]
+pub struct CodeReference(uint, uint);
+
+impl CodeReference {
+	pub fn new(pos: uint) -> CodeReference {
+		CodeReference(pos, pos + 1)
+	}
+	pub fn range(&self, end: &CodeReference) -> CodeReference {
+		let &CodeReference(start, _) = self;
+		let &CodeReference(_, nd) = end;
+		CodeReference(start, nd)
+	}
+	pub fn get_start(&self) -> CodeReference {
+		let &CodeReference(start, _) = self;
+		CodeReference(start, start)
+	}
+}
+}
 #Identifier(&'static str)
 #Fn
 #Returns	// ->

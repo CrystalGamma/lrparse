@@ -359,6 +359,35 @@ fn actual_write_pattern<W: Writer>(out: &mut W, sym: &String, typ: &Vec<Token>, 
 	Ok(false)
 }
 
+fn write_pop_command<W: Writer>(out: &mut W,
+				capture_pos: Option<&str>,
+				capture_val: Option<uint>,
+				tok: &str) -> IoResult<()> {
+	match (capture_pos, capture_val) {
+		(None, None) => out.write_str("
+				self.stack.pop();"),
+		(Some(pos), None) => {
+			try!(out.write_str("
+				let "));
+			try!(out.write_str(pos));
+			out.write_str(" = match self.stack.pop() { Some((_, _, p)) => p, _ => panic!() };")
+		},
+		(None, Some(val)) => {
+			try!(write!(out, "
+				let sym{}", val));
+			try!(out.write_str(" =  match self.stack.pop() { Some((_, "));
+			try!(out.write_str(tok));
+			out.write_str("(v), _)) => v, _ => panic!() };")
+		},
+		(Some(pos), Some(val)) => {
+			try!(write!(out, "let (sym{}, {}", val, pos));
+			try!(out.write_str(") =  match self.stack.pop() { Some((_, "));
+			try!(out.write_str(tok));
+			out.write_str("(v), p)) => (v, p), _ => panic!() };")
+		}
+	}
+}
+
 fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, uint>, num_symbols: uint, grammar: &Grammar)
 		-> IoResult<()> {
 	let mut file = try!(File::open_mode(filename, Truncate, Write));
@@ -410,12 +439,12 @@ static TABLE: &'static [uint] = &["));
 	try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
 		"];\nstatic NUM_RULES: uint = {}u;\nstatic NUM_SYMBOLS: uint = {}u;\n", grammar.rules.len(), num_symbols));
 	try!(out.write_str("pub struct Parser {
-	stack: Vec<(uint, Token)>,
+	stack: Vec<(uint, Token, CodeReference)>,
 }
 
 impl Parser {
-	pub fn new() -> Parser {
-		Parser {stack: vec![(0u, Other('#'))]}
+	pub fn new(pos: CodeReference) -> Parser {
+		Parser {stack: vec![(0u, Other('#'), pos)]}
 	}
 	fn get_token_id(tok: &Token) -> uint {
 		match tok {"));
@@ -439,24 +468,24 @@ impl Parser {
 	try!(out.write_str("\n\t\t\t_ => panic!(\"unknown token used in parser\")
 		}
 	}
-	pub fn consume_token(&mut self, tok: Token) -> Result<(),()> {
+	pub fn consume_token(&mut self, tok: Token, pos: CodeReference) -> Result<(),()> {
 		let tok_id = Parser::get_token_id(&tok);
-		try!(self.do_reduces(tok_id));
-		let &(state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
-		self.stack.push((TABLE[state*NUM_SYMBOLS + tok_id]-NUM_RULES-1, tok));
+		try!(self.do_reduces(tok_id, &pos));
+		let &(state, _, _) = match self.stack.last() {Some(x) => x, None => panic!()};
+		self.stack.push((TABLE[state*NUM_SYMBOLS + tok_id]-NUM_RULES-1, tok, pos));
 		Ok(())
 	}
-	fn do_reduces(&mut self, tok_id: uint) -> Result<(), ()> {
+	fn do_reduces(&mut self, tok_id: uint, redpos: &CodeReference) -> Result<(), ()> {
 		loop {
-			let &(state, _) = match self.stack.last() {Some(x) => x, None => panic!()};
+			let &(state, _, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 			let action = TABLE[state*NUM_SYMBOLS + tok_id];
 			if action > NUM_RULES {
 				return Ok(());
 			}
-			try!(self.reduce(action));
+			try!(self.reduce(action, redpos.get_start()));
 		}
 	}
-	fn reduce(&mut self, rule: uint) -> Result<(), ()> {
+	fn reduce(&mut self, rule: uint, redpos: CodeReference) -> Result<(), ()> {
 		match match rule {
 			0 => Err(()),
 			1 => {
@@ -467,16 +496,16 @@ impl Parser {
 	};
 	let typ = get_type(start_sym, grammar);
 	if typ.len() != 0 {
-		try!(out.write_str("let sym = match self.stack.pop() { Some((_, "));
+		try!(out.write_str("let (sym, pos) = match self.stack.pop() { Some((_, "));
 		try!(actual_write_pattern(out, start_sym, typ, "x"));
-		try!(out.write_str(")) => x, _ => panic!() };
-				self.stack.push((1, Accept_(sym)));"));
+		try!(out.write_str(", p)) => (x, p), _ => panic!() };
+				self.stack.push((1, Accept_(sym), pos));"));
 	} else {
-		try!(out.write_str("match self.stack.pop() {
-					Some((_, _)) => {},
+		try!(out.write_str("let pos = match self.stack.pop() {
+					Some((_, _, p)) => p,
 					_ => panic!()
-				}
-				self.stack.push((1, Accept_));"));
+				};
+				self.stack.push((1, Accept_, pos));"));
 	}
 	try!(out.write_str("
 				return Ok(());
@@ -495,23 +524,22 @@ impl Parser {
 			"\n\t\t\t{} => {}", rule_id + 1, '{'));
 		let len = rule.seq.len();
 		for i in range(0, len) {
+			let cap_pos = if i == len - 1 {
+				Some("startpos")
+			} else if i == 0 {
+				Some("endpos")
+			} else {
+				None
+			};
 			match rule.seq[len - i -1] {
-				Chr(_) => try!(out.write_str("
-				match self.stack.pop() { Some((_, Other(_))) => {}, _ => panic!() }")),
+				Chr(_) => try!(write_pop_command(out, cap_pos, None, "Other")),
 				Sym(ref s) => {
 					let typ = get_type(s, grammar);
-					if typ.len() == 0 {
-						try!(out.write_str("
-				match self.stack.pop() { Some((_, "));
-						try!(out.write_str(s.as_slice()));
-						try!(out.write_str(")) => {}, _ => panic!() }"));
-						continue;
-					}
-					try!(write!(out, "
-				let sym{} = match self.stack.pop()", len - i - 1));
-					try!(out.write_str(" { Some((_, "));
-					try!(actual_write_pattern(out, s, typ, "x"));
-					try!(out.write_str(")) => x, _ => panic!() };"));
+					try!(write_pop_command(out, cap_pos, if typ.len() == 0 {
+						None
+					} else {
+						Some(len - i - 1)
+					}, s.as_slice()));
 				}
 			}
 		}
@@ -529,13 +557,28 @@ impl Parser {
 			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
 				"sym{}, ", i));
 		}
-		try!(out.write_str(")))"));
+		try!(out.write_str(")"));
+		if len > 0 {
+			try!(out.write_str(", startpos"));
+			if len > 1 {
+			try!(out.write_str(", endpos"));
+			}
+		}
+		try!(out.write_str("));
+				"));
+		if len > 1 {
+			try!(out.write_str("let pos = startpos.range(&endpos);"));
+		} else if len == 1 {
+			try!(out.write_str("let pos = startpos;"));
+		} else {
+			try!(out.write_str("let pos = redpos;"));
+		}
 		if is_unit {
 			try!(write!(out, "
-				Ok(({}, {}))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+				Ok(({}, {}, pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
 		} else {
 			try!(write!(out, ";
-				Ok(({}, {}(res)))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+				Ok(({}, {}(res), pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
 		}
 		try!(out.write_str("
 			}"));
@@ -544,10 +587,10 @@ impl Parser {
 	try!(out.write_str("
 			_ => panic!()
 		} {
-			Ok((id, x)) => {
-				let &(st, _) = match self.stack.last() {Some(x) => x, None => panic!()};
+			Ok((id, x, pos)) => {
+				let &(st, _, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 				let goto = TABLE[st * NUM_SYMBOLS + id];
-				self.stack.push((goto, x));
+				self.stack.push((goto, x, pos));
 				Ok(())
 			},
 			Err(e) => Err(e)
@@ -572,8 +615,14 @@ impl Parser {
 				}
 			}
 		}
+		try!(out.write_str(")"));
+		if len > 1 {
+			try!(out.write_str(", startpos: CodeReference, endpos: CodeReference"));
+		} else if len == 1 {
+			try!(out.write_str(", startpos: CodeReference"));
 		}
-		try!(out.write_str(")) -> Result<"));
+		}
+		try!(out.write_str(") -> Result<"));
 		if !try!(write_type(out, grammar.rules[rule_id].nterm.deref(), grammar, 1)) {
 			try!(out.write_str("()"));
 		}
@@ -581,7 +630,7 @@ impl Parser {
 		try!(grammar.rules[rule_id].code.pretty_print_token(out, 1));
 	}
 	try!(out.write_str("
-	pub fn end_parse(mut self) -> Result<"));
+	pub fn end_parse(mut self, pos: CodeReference) -> Result<"));
 	if !try!(write_type(out, &"Accept_".to_string(), grammar, 1)) {
 		try!(out.write_str("()"));
 	}
@@ -590,16 +639,16 @@ impl Parser {
 			let state = match self.stack.last() {
 				Some(&(_, "));
 	if try!(write_pattern(out, &"Accept_".to_string(), grammar, "x")) {
-		try!(out.write_str(")) => return Ok(x),"));
+		try!(out.write_str(", _)) => return Ok(x),"));
 	} else {
-		try!(out.write_str(")) => return Ok(()),"));
+		try!(out.write_str(", _)) => return Ok(()),"));
 	}
 	try!(out.write_str("
-				Some(&(x, _)) => x,
+				Some(&(x, _, _)) => x,
 				None => panic!()
 			};
 			let action = TABLE[state*NUM_SYMBOLS];
-			try!(self.reduce(action));
+			try!(self.reduce(action, pos.get_start()));
 		}
 	}
 }"));
