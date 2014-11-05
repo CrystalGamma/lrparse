@@ -388,12 +388,22 @@ fn write_pop_command<W: Writer>(out: &mut W,
 	}
 }
 
-fn write_parser(filename: &Path, nodes: Vec<Node>, mapping: HashMap<RuleItem, uint>, num_symbols: uint, grammar: &Grammar)
+fn write_parser(filename: &Path,
+		nodes: Vec<Node>,
+		mapping: HashMap<RuleItem, uint>,
+		num_symbols: uint,
+		grammar: &Grammar,
+		debug: bool)
 		-> IoResult<()> {
 	let mut file = try!(File::open_mode(filename, Truncate, Write));
 	let out = &mut file;
 	try!(grammar.prelude.iter().pretty_print(out, 0, false));
-	try!(out.write_str("pub enum Token {
+	if debug {
+		try!(out.write_str("
+#[deriving(Show,Clone)]"));
+	}
+	try!(out.write_str("
+pub enum Token {
 	Other(char)"));
 	for (item, _) in mapping.iter() {
 		if item == &Sym("$eof".to_string()) {
@@ -441,7 +451,12 @@ static TABLE: &'static [uint] = &["));
 	try!(out.write_str("pub struct Parser {
 	stack: Vec<(uint, Token, CodeReference)>,
 }
-
+"));
+	if debug {
+		try!(out.write_str("
+#[deriving(Show)]"));
+	}
+	try!(out.write_str("
 impl Parser {
 	pub fn new(pos: CodeReference) -> Parser {
 		Parser {stack: vec![(0u, Other('#'), pos)]}
@@ -679,7 +694,7 @@ fn main() {
 	println!("{}", nodes);
 	let (mapping, num_symbols) = assign_numbers(&nodes, &grammar);
 	println!("mapping: {}", mapping);
-	match write_parser(&Path::new("out.rs"), nodes, mapping, num_symbols, &grammar) {
+	match write_parser(&Path::new("out.rs"), nodes, mapping, num_symbols, &grammar, true) {
 		Ok(()) => {},
 		Err(e) => panic!("could not write grammar: {}", e)
 	}
