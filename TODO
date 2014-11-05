@@ -2,3 +2,4 @@ Error handling
 Subparsers
 Cleanup
 Error recovery?
+Conditional rules? (would be used to allow for the generation of the "rustcore" profile)
