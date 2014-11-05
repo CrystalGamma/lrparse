@@ -446,17 +446,17 @@ static TABLE: &'static [uint] = &["));
 			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args), "{:8u},", num));
 		}
 	}
-	try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
-		"];\nstatic NUM_RULES: uint = {}u;\nstatic NUM_SYMBOLS: uint = {}u;\n", grammar.rules.len(), num_symbols));
-	try!(out.write_str("pub struct Parser {
-	stack: Vec<(uint, Token, CodeReference)>,
-}
-"));
+	try!(write!(out, "];\nstatic NUM_RULES: uint = {}u;\nstatic NUM_SYMBOLS: uint = {}u;\n",
+			grammar.rules.len(), num_symbols));
 	if debug {
 		try!(out.write_str("
 #[deriving(Show)]"));
 	}
 	try!(out.write_str("
+pub struct Parser {
+	stack: Vec<(uint, Token, CodeReference)>,
+}
+
 impl Parser {
 	pub fn new(pos: CodeReference) -> Parser {
 		Parser {stack: vec![(0u, Other('#'), pos)]}
@@ -561,6 +561,15 @@ impl Parser {
 		let is_unit = grammar.nterms[*rule.nterm.deref()].type_.len() == 0;
 		try!(out.write_str("
 				"));
+		if len > 1 {
+			try!(out.write_str("let pos = startpos.range(&endpos);"));
+		} else if len == 1 {
+			try!(out.write_str("let pos = startpos;"));
+		} else {
+			try!(out.write_str("let pos = redpos;"));
+		}
+		try!(out.write_str("
+				"));
 		if !is_unit {
 			try!(out.write_str("let res = "));
 		}
@@ -572,28 +581,12 @@ impl Parser {
 			try!(format_args!(|args: &std::fmt::Arguments| out.write_fmt(args),
 				"sym{}, ", i));
 		}
-		try!(out.write_str(")"));
-		if len > 0 {
-			try!(out.write_str(", startpos"));
-			if len > 1 {
-			try!(out.write_str(", endpos"));
-			}
-		}
-		try!(out.write_str("));
+		try!(out.write_str("), pos));
 				"));
-		if len > 1 {
-			try!(out.write_str("let pos = startpos.range(&endpos);"));
-		} else if len == 1 {
-			try!(out.write_str("let pos = startpos;"));
-		} else {
-			try!(out.write_str("let pos = redpos;"));
-		}
 		if is_unit {
-			try!(write!(out, "
-				Ok(({}, {}, pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+			try!(write!(out, "Ok(({}, {}, pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
 		} else {
-			try!(write!(out, ";
-				Ok(({}, {}(res), pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+			try!(write!(out, "Ok(({}, {}(res), pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
 		}
 		try!(out.write_str("
 			}"));
@@ -630,14 +623,8 @@ impl Parser {
 				}
 			}
 		}
-		try!(out.write_str(")"));
-		if len > 1 {
-			try!(out.write_str(", startpos: CodeReference, endpos: CodeReference"));
-		} else if len == 1 {
-			try!(out.write_str(", startpos: CodeReference"));
 		}
-		}
-		try!(out.write_str(") -> Result<"));
+		try!(out.write_str("), pos: CodeReference) -> Result<"));
 		if !try!(write_type(out, grammar.rules[rule_id].nterm.deref(), grammar, 1)) {
 			try!(out.write_str("()"));
 		}
