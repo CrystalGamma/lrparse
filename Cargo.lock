@@ -1,0 +1,17 @@
+[root]
+name = "lrparse"
+version = "0.0.1"
+dependencies = [
+ "lexer 0.0.1",
+ "lookahead 0.0.1 (git+https://github.com/CrystalGamma/rust-lookahead)",
+]
+
+[[package]]
+name = "lexer"
+version = "0.0.1"
+
+[[package]]
+name = "lookahead"
+version = "0.0.1"
+source = "git+https://github.com/CrystalGamma/rust-lookahead#71a4d1b205ee4da0fe8f4e43a19067be7c68d2f8"
+
