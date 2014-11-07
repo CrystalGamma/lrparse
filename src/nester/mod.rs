@@ -26,7 +26,7 @@ use self::lookahead::LookAhead;
 
 mod code_ref;
 
-#[deriving(Clone)]
+#[deriving(Clone,Show)]
 pub enum TokenTree {
 	Tok(TokenContent),
 	Tree(char, Vec<Token>)

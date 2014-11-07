@@ -51,7 +51,8 @@ struct Grammar {
 	terms: HashMap<String, Vec<Token>>,
 	chars: HashSet<char>,
 	nterms: HashMap<String, NTerm>,
-	rules: Vec<Rule>
+	rules: Vec<Rule>,
+	errors: HashMap<String, Vec<Token>>
 }
 
 fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (uint, uint) {
@@ -104,6 +105,7 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 		chars: HashSet::new(),
 		nterms: HashMap::new(),
 		rules: Vec::new(),
+		errors: HashMap::new()
 	};
 	grammar.nterms.insert("Accept_".to_string(), NTerm {
 		type_: Vec::new(),
@@ -179,7 +181,25 @@ fn parse_grammar(tree: &[Token]) -> Grammar {
 					_ => panic!()
 				}
 			},
-			_ => panic!()
+			&Other('!') => {
+				pos += 1;
+				match tree[pos].content {
+					Tok(Identifier(ref s)) => {
+						pos += 1;
+						let name = s.clone();
+						let typ = match tree[pos].content {
+							Tree(')', ref t) => {
+								pos += 1;
+								t.clone()
+							},
+							_ => Vec::new()
+						};
+						grammar.errors.insert(name, typ);
+					},
+					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
+				}
+			},
+			_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
 		}
 		if pos != tree.len() {
 			match tree[pos].content {

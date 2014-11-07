@@ -1,6 +1,6 @@
 [root]
 name = "lrparse"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "lexer 0.0.1",
  "lookahead 0.0.1 (git+https://github.com/CrystalGamma/rust-lookahead)",
