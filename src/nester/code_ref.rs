@@ -20,6 +20,8 @@ extern crate lexer;
 use std::sync::Arc;
 use std::fmt::{Formatter, Show, FormatError, Arguments};
 
+/// A human-readable offset into a text file
+
 #[deriving(PartialEq,Clone)]
 pub struct CodePoint {
 	line: uint,
@@ -27,6 +29,7 @@ pub struct CodePoint {
 }
 
 impl CodePoint {
+	/// Constructs a new CodePoint from a line and column number
 	pub fn new(line: uint, col: uint) -> CodePoint {
 		CodePoint {
 			line: line,
@@ -34,6 +37,8 @@ impl CodePoint {
 		}
 	}
 }
+
+/// A reference to range of characters in a text file
 
 #[deriving(Clone)]
 pub struct CodeReference {
@@ -43,6 +48,7 @@ pub struct CodeReference {
 }
 
 impl CodeReference {
+	/// Constructs a new code reference from a file name and a pair of CodePoints
 	pub fn new(file: &Arc<String>, start: CodePoint, end: CodePoint) -> CodeReference {
 		CodeReference {
 			filename: file.clone(),
@@ -50,9 +56,13 @@ impl CodeReference {
 			end: end
 		}
 	}
+
+	/// Returns a reference to internal (not included in the source file) code
 	pub fn internal() -> CodeReference {
 		CodeReference::new(&Arc::new("$internal$".to_string()), CodePoint::new(0,0), CodePoint::new(0,0))
 	}
+
+	/// 
 	pub fn from_lexer_token(start: &lexer::Token, end: &lexer::Token, filename: &Arc<String>) -> CodeReference {
 		CodeReference {
 			filename: filename.clone(),
