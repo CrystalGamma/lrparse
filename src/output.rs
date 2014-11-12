@@ -106,7 +106,7 @@ fn write_error_enum<W: Writer>(out: &mut W, errors: &HashMap<String, Vec<Token>>
 	}
 	try!(out.write_str("
 pub enum Error {
-	SyntaxError(Token, CodeReference)"));
+	SyntaxError(CodeReference)"));
 	for (name, typ) in errors.iter() {
 		try!(out.write_str(",
 	"));
@@ -194,14 +194,14 @@ impl Parser {
 	try!(out.write_str("\n\t\t\t_ => panic!(\"unknown token used in parser\")
 		}
 	}
-	pub fn consume_token(&mut self, tok: Token, pos: CodeReference) -> Result<(),()> {
+	pub fn consume_token(&mut self, tok: Token, pos: CodeReference) -> Result<(), Error> {
 		let tok_id = Parser::get_token_id(&tok);
 		try!(self.do_reduces(tok_id, &pos));
 		let &(state, _, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 		self.stack.push((TABLE[state*NUM_SYMBOLS + tok_id]-NUM_RULES-1, tok, pos));
 		Ok(())
 	}
-	fn do_reduces(&mut self, tok_id: uint, redpos: &CodeReference) -> Result<(), ()> {
+	fn do_reduces(&mut self, tok_id: uint, redpos: &CodeReference) -> Result<(), Error> {
 		loop {
 			let &(state, _, _) = match self.stack.last() {Some(x) => x, None => panic!()};
 			let action = TABLE[state*NUM_SYMBOLS + tok_id];
@@ -211,9 +211,9 @@ impl Parser {
 			try!(self.reduce(action, redpos.get_start()));
 		}
 	}
-	fn reduce(&mut self, rule: uint, redpos: CodeReference) -> Result<(), ()> {
+	fn reduce(&mut self, rule: uint, redpos: CodeReference) -> Result<(), Error> {
 		match match rule {
-			0 => Err(()),
+			0 => Err(SyntaxError(redpos)),
 			1 => {
 				"));
 	let start_sym = match grammar.rules[0].seq[0] {
@@ -336,7 +336,7 @@ impl Parser {
 		if !try!(write_type(out, grammar.rules[rule_id].nterm.deref(), grammar, 1)) {
 			try!(out.write_str("()"));
 		}
-		try!(out.write_str(", ()> "));
+		try!(out.write_str(", Error> "));
 		try!(grammar.rules[rule_id].code.pretty_print_token(out, 1));
 	}
 	try!(out.write_str("
@@ -344,7 +344,7 @@ impl Parser {
 	if !try!(write_type(out, &"Accept_".to_string(), grammar, 1)) {
 		try!(out.write_str("()"));
 	}
-	try!(out.write_str(", ()> {
+	try!(out.write_str(", Error> {
 		loop {
 			let state = match self.stack.last() {
 				Some(&(_, "));

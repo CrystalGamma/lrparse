@@ -1,5 +1,5 @@
 #{
-#[deriving(Show)]
+#[deriving(Show,Clone)]
 pub struct CodeReference(uint, uint);
 
 impl CodeReference {
