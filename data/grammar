@@ -22,6 +22,8 @@ impl CodeReference {
 #Fn
 #Returns	// ->
 
+!TestError
+
 RustFile{
 	{Ok(())},
 	RustFile FunctionDefinition {Ok(())}

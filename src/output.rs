@@ -69,16 +69,11 @@ fn write_pop_command<W: Writer>(out: &mut W,
 	}
 }
 
-pub fn write_parser(filename: &Path,
-		nodes: Vec<Node>,
-		mapping: HashMap<RuleItem, uint>,
-		num_symbols: uint,
-		grammar: &Grammar,
-		debug: bool)
-		-> IoResult<()> {
-	let mut file = try!(File::open_mode(filename, Truncate, Write));
-	let out = &mut file;
-	try!(grammar.prelude.iter().pretty_print(out, 0, false));
+fn write_token_enum<W: Writer>(out: &mut W,
+			mapping: &HashMap<RuleItem, uint>,
+			grammar: &Grammar,
+			debug: bool)
+			-> IoResult<()> {
 	if debug {
 		try!(out.write_str("
 #[deriving(Show,Clone)]"));
@@ -100,8 +95,43 @@ pub enum Token {
 			}
 		}
 	}
-	try!(out.write_str("
+	out.write_str("
+}")
 }
+
+fn write_error_enum<W: Writer>(out: &mut W, errors: &HashMap<String, Vec<Token>>, debug: bool) -> IoResult<()> {
+	if debug {
+		try!(out.write_str("
+#[deriving(Show,Clone)]"));
+	}
+	try!(out.write_str("
+pub enum Error {
+	SyntaxError(Token, CodeReference)"));
+	for (name, typ) in errors.iter() {
+		try!(out.write_str(",
+	"));
+		try!(out.write_str(name.as_slice()));
+		if typ.len() != 0 {
+			try!(actual_write_type(out, typ, 1));
+		}
+	}
+	out.write_str("
+}")
+}
+
+pub fn write_parser(filename: &Path,
+		nodes: Vec<Node>,
+		mapping: HashMap<RuleItem, uint>,
+		num_symbols: uint,
+		grammar: &Grammar,
+		debug: bool)
+		-> IoResult<()> {
+	let mut file = try!(File::open_mode(filename, Truncate, Write));
+	let out = &mut file;
+	try!(grammar.prelude.iter().pretty_print(out, 0, false));
+	try!(write_token_enum(out, &mapping, grammar, debug));
+	try!(write_error_enum(out, &grammar.errors, debug));
+	try!(out.write_str("
 static TABLE: &'static [uint] = &["));
 	let num_rules = grammar.rules.len();
 	for node in nodes.into_iter() {
