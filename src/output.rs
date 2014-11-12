@@ -157,7 +157,8 @@ static TABLE: &'static [uint] = &["));
 			try!(write!(out, "{:8u},", num));
 		}
 	}
-	try!(write!(out, "];\nstatic NUM_RULES: uint = {}u;\nstatic NUM_SYMBOLS: uint = {}u;\n",
+	try!(write!(out, "];
+static NUM_RULES: uint = {}u;\nstatic NUM_SYMBOLS: uint = {}u;\n",
 			grammar.rules.len(), num_symbols));
 	if debug {
 		try!(out.write_str("
