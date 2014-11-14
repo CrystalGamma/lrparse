@@ -69,12 +69,12 @@ mod parse_grammar;
 mod node_graph;
 mod output;
 
-fn assign_numbers(nodes: &Vec<Node>, grammar: &Grammar) -> (HashMap<RuleItem, uint>, uint) {
+fn assign_numbers<'a, I: Iterator<&'a Node>>(mut nodes: I, grammar: &Grammar) -> (HashMap<RuleItem, uint>, uint) {
 	let mut cur_id = 2u;
 	let mut ids: HashMap<RuleItem, uint> = HashMap::new();
 	ids.insert(Sym("$eof".to_string()), 0);
 	ids.insert(Sym("Accept_".to_string()), 1);
-	for node in nodes.iter() {
+	for node in nodes {
 		for (item, _) in node.shifts.iter() {
 			println!("found {}", item);
 			if !ids.contains_key(item) {
@@ -119,7 +119,7 @@ fn main() {
 	println!("{}", grammar);
 	let nodes = create_nodes(&grammar);
 	println!("{}", nodes);
-	let (mapping, num_symbols) = assign_numbers(&nodes, &grammar);
+	let (mapping, num_symbols) = assign_numbers(nodes.iter(), &grammar);
 	println!("mapping: {}", mapping);
 	match write_parser(&Path::new("out.rs"), nodes, mapping, num_symbols, &grammar, true) {
 		Ok(()) => {},
