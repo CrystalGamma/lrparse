@@ -97,6 +97,14 @@ fn assign_numbers<'a, I: Iterator<&'a Node>>(mut nodes: I, grammar: &Grammar) ->
 	(ids, cur_id)
 }
 
+static mut LOG_LEVEL: uint = 0u;
+
+fn log_level() -> uint {
+	unsafe {
+		LOG_LEVEL
+	}
+}
+
 fn main() {
 	let path = Path::new("data/grammar");
 	let file = match File::open(&path) {
@@ -111,16 +119,24 @@ fn main() {
 		Ok(x) => x,
 		Err(e) => panic!("{}", e)
 	};
-	match tree.iter().pretty_print(&mut std::io::stdio::stdout(), 0, true) {
-		Ok(_) => {},
-		Err(e) => panic!("{}", e)
+	if log_level() > 2 {
+		match tree.iter().pretty_print(&mut std::io::stdio::stdout(), 0, true) {
+			Ok(_) => {},
+			Err(e) => panic!("{}", e)
+		}
 	}
 	let grammar = parse_grammar(tree.as_slice());
-	println!("{}", grammar);
+	if log_level() > 2 {
+		println!("{}", grammar);
+	}
 	let nodes = create_nodes(&grammar);
-	println!("{}", nodes);
+	if log_level() > 2 {
+		println!("{}", nodes);
+	}
 	let (mapping, num_symbols) = assign_numbers(nodes.iter(), &grammar);
-	println!("mapping: {}", mapping);
+	if log_level() > 2 {
+		println!("mapping: {}", mapping);
+	}
 	match write_parser(&Path::new("out.rs"), nodes, mapping, num_symbols, &grammar, true) {
 		Ok(()) => {},
 		Err(e) => panic!("could not write grammar: {}", e)

@@ -71,7 +71,6 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 	let mut pos = 0;
 	let mut startsymbol = true;
 	loop {
-		println!("*");
 		match match tree[pos].content {
 			Tok(ref x) => x,
 			Tree(..) => panic!()
