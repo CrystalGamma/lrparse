@@ -73,9 +73,10 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 	loop {
 		match match tree[pos].content {
 			Tok(ref x) => x,
-			Tree(..) => panic!()
+			Tree(..) => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
 		} {
 			&Other('#') => {
+				let ref_ = tree[pos].ref_.clone();
 				pos += 1;
 				match tree[pos].content {
 					Tree('}', ref t @ _) => {
@@ -84,18 +85,17 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 					},
 					Tok(Identifier(ref id)) => {
 						pos += 1;
-						match tree[pos].content {
-							Tree(')', ref t @ _) => if !grammar.terms.insert(id.clone(), t.clone()) {
-								panic!() 
-							} else {
+						if !grammar.terms.insert(id.clone(), match tree[pos].content {
+							Tree(')', ref t @ _) => {
 								pos += 1;
+								t.clone()
 							},
-							_ => if !grammar.terms.insert(id.clone(), Vec::new()) {
-								panic!();
-							}
+							_ => Vec::new()
+						}) {
+							panic!("Doubly defined terminal symbol {} at {}", id, ref_);
 						}
 					}
-					_ => panic!()
+					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
 				}
 			},
 			&Identifier(ref name) => {
@@ -107,7 +107,7 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 						pos +=1;
 						t.clone()
 					},
-					_ => panic!()
+					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
 				};
 				match tree[pos].content {
 					Tree('}', ref t @ _) => {
@@ -126,7 +126,7 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 						};
 						grammar.nterms.insert(name.clone(), nterm);
 					},
-					_ => panic!()
+					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
 				}
 			},
 			&Other('!') => {
