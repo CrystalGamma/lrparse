@@ -115,11 +115,16 @@ fn main() {
 	let mut state = Nothing;
 	let mut gramm = "data/grammar".to_string();
 	let mut out = "out.rs".to_string();
+	let mut debug = false;
 	for arg in args.iter() {
 		match state {
 			Nothing => {
-				match arg.as_slice() {
+				match arg.as_slice() {	// TODO: make single-letter args combinable
 					"-o" => { state = Output; },
+					"--debug" | "-d" => { debug = true; },
+					"-v" | "--verbose" | "--verbose=1" => unsafe { LOG_LEVEL = 1; },
+					"-vv" | "--verbose=2" => unsafe { LOG_LEVEL = 2; },
+					"-vvv" | "--verbose=3" => unsafe { LOG_LEVEL = 3; },
 					_ => { gramm = arg.clone(); }
 				}
 			},
@@ -163,7 +168,7 @@ fn main() {
 	if log_level() > 2 {
 		println!("mapping: {}", mapping);
 	}
-	match write_parser(&Path::new(out.as_slice()), nodes, mapping, num_symbols, &grammar, true) {
+	match write_parser(&Path::new(out.as_slice()), nodes, mapping, num_symbols, &grammar, debug) {
 		Ok(()) => {},
 		Err(e) => panic!("could not write grammar: {}", e)
 	}

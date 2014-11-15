@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use nester::{Token, Tok, Tree, Identifier, Char, Other, Arrow, CodeReference};
 use {Grammar, RuleItem, Sym, Chr, Rule, NTerm};
+use log_level;
 
 fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (uint, uint) {
 	let mut pos = 0;
@@ -34,7 +35,9 @@ fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (u
 				_ => panic!()
 			}
 		}
-		println!("rule {}: {}", grammar.rules.len() - 1, grammar.rules.last());
+		if log_level() > 0 {
+			println!("rule {}: {}", grammar.rules.len() - 1, grammar.rules.last());
+		}
 		if pos != tree.len() {
 			match tree[pos].content {
 				Tok(Other(',')) => { pos += 1; },
