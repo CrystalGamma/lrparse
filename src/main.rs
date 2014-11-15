@@ -106,7 +106,33 @@ fn log_level() -> uint {
 }
 
 fn main() {
-	let path = Path::new("data/grammar");
+	let args = std::os::args();
+	#[deriving(PartialEq, Show)]
+	enum State {
+		Output,
+		Nothing
+	}
+	let mut state = Nothing;
+	let mut gramm = "data/grammar".to_string();
+	let mut out = "out.rs".to_string();
+	for arg in args.iter() {
+		match state {
+			Nothing => {
+				match arg.as_slice() {
+					"-o" => { state = Output; },
+					_ => { gramm = arg.clone(); }
+				}
+			},
+			Output => {
+				state = Nothing;
+				out = arg.clone();
+			}
+		}
+	}
+	if state != Nothing {
+		panic!("expecting {} at the end of command line arguments", state);
+	}
+	let path = Path::new(gramm.as_slice());
 	let file = match File::open(&path) {
 		Ok(x) => x,
 		Err(e) => panic!("file could not be opened: {}", e)
@@ -137,7 +163,7 @@ fn main() {
 	if log_level() > 2 {
 		println!("mapping: {}", mapping);
 	}
-	match write_parser(&Path::new("out.rs"), nodes, mapping, num_symbols, &grammar, true) {
+	match write_parser(&Path::new(out.as_slice()), nodes, mapping, num_symbols, &grammar, true) {
 		Ok(()) => {},
 		Err(e) => panic!("could not write grammar: {}", e)
 	}

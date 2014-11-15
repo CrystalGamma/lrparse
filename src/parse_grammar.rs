@@ -130,6 +130,7 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 				}
 			},
 			&Other('!') => {
+				let ref_ = tree[pos].ref_.clone();
 				pos += 1;
 				match tree[pos].content {
 					Tok(Identifier(ref s)) => {
@@ -142,7 +143,9 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 							},
 							_ => Vec::new()
 						};
-						grammar.errors.insert(name, typ);
+						if !grammar.errors.insert(name.clone(), typ) {
+							panic!("Doubly defined error type {} at {}", name, ref_);
+						}
 					},
 					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
 				}
