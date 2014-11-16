@@ -88,14 +88,15 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 					},
 					Tok(Identifier(ref id)) => {
 						pos += 1;
-						if !grammar.terms.insert(id.clone(), match tree[pos].content {
+						match grammar.terms.insert(id.clone(), match tree[pos].content {
 							Tree(')', ref t @ _) => {
 								pos += 1;
 								t.clone()
 							},
 							_ => Vec::new()
 						}) {
-							panic!("Doubly defined terminal symbol {} at {}", id, ref_);
+							Some(_) => panic!("Doubly defined terminal symbol {} at {}", id, ref_),
+							None => {}
 						}
 					}
 					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
@@ -116,7 +117,7 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 					Tree('}', ref t @ _) => {
 						pos += 1;
 						if startsymbol {
-							match grammar.nterms.find_mut(&"Accept_".to_string()) {
+							match grammar.nterms.get_mut(&"Accept_".to_string()) {
 								Some(x) => { x.type_ = type_.clone(); }
 								None => panic!()
 							}
@@ -127,7 +128,7 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 							type_: type_,
 							rules: parse_rules(t.as_slice(), &arc, &mut grammar)
 						};
-						grammar.nterms.insert(name.clone(), nterm);
+						grammar.nterms.insert(name.clone(), nterm);	//FIXME
 					},
 					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)
 				}
@@ -146,8 +147,9 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 							},
 							_ => Vec::new()
 						};
-						if !grammar.errors.insert(name.clone(), typ) {
-							panic!("Doubly defined error type {} at {}", name, ref_);
+						match grammar.errors.insert(name.clone(), typ) {
+							Some(_) => panic!("Doubly defined error type {} at {}", name, ref_),
+							None => {}
 						}
 					},
 					_ => panic!("unexpected token {} at {}", tree[pos].content, tree[pos].ref_)

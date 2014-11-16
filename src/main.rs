@@ -97,6 +97,7 @@ fn assign_numbers<'a, I: Iterator<&'a Node>>(mut nodes: I, grammar: &Grammar) ->
 	(ids, cur_id)
 }
 
+// FIXME: just give this as parameters
 static mut LOG_LEVEL: uint = 0u;
 
 fn log_level() -> uint {
@@ -105,27 +106,43 @@ fn log_level() -> uint {
 	}
 }
 
-fn main() {
-	let args = std::os::args();
+fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, String, bool, uint) {
 	#[deriving(PartialEq, Show)]
 	enum State {
 		Output,
 		Nothing
 	}
+
 	let mut state = Nothing;
 	let mut gramm = "data/grammar".to_string();
 	let mut out = "out.rs".to_string();
 	let mut debug = false;
-	for arg in args.iter() {
+	let mut loglevel = 0;
+	for arg in args {
 		match state {
 			Nothing => {
-				match arg.as_slice() {	// TODO: make single-letter args combinable
-					"-o" => { state = Output; },
-					"--debug" | "-d" => { debug = true; },
-					"-v" | "--verbose" | "--verbose=1" => unsafe { LOG_LEVEL = 1; },
-					"-vv" | "--verbose=2" => unsafe { LOG_LEVEL = 2; },
-					"-vvv" | "--verbose=3" => unsafe { LOG_LEVEL = 3; },
-					_ => { gramm = arg.clone(); }
+				if arg.char_at(0) == '-' {
+					if arg.char_at(1) == '-' {
+						match arg.as_slice() {
+							"--debug" => { debug = true; },
+							"--verbose" | "--verbose=1" => { loglevel = 1; },
+							"--verbose=2" => { loglevel = 2; },
+							"--verbose=3" => { loglevel = 3; },
+							"--out" | "--output" => { state = Output; },
+							_ => panic!("unrecognised cmdline argument {}", arg)
+						}
+					} else { // single-char args
+						for c in arg.slice_from(1).chars() {
+							match c {
+								'o' => { state = Output; },
+								'd' => { debug = true; },
+								'v' => { loglevel += 1; },
+								_ => panic!("unrecognised cmdline option -{}", c)
+							}
+						}
+					}
+				} else {
+					gramm = arg.clone();
 				}
 			},
 			Output => {
@@ -137,6 +154,16 @@ fn main() {
 	if state != Nothing {
 		panic!("expecting {} at the end of command line arguments", state);
 	}
+	(gramm, out, debug, loglevel)
+}
+
+fn main() {
+	let args = std::os::args();
+	let (gramm, out, debug, loglevel) = parse_cmdline(args.iter());
+	unsafe {
+		LOG_LEVEL = loglevel;
+	}
+	println!("loglvl {}", loglevel);
 	let path = Path::new(gramm.as_slice());
 	let file = match File::open(&path) {
 		Ok(x) => x,
@@ -156,6 +183,7 @@ fn main() {
 			Err(e) => panic!("{}", e)
 		}
 	}
+	println!("");
 	let grammar = parse_grammar(tree.as_slice());
 	if log_level() > 2 {
 		println!("{}", grammar);
