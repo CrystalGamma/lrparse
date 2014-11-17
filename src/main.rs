@@ -73,22 +73,6 @@ impl std::fmt::Show for Rule {
 #[deriving(PartialEq, Eq, Show)]
 struct RulePos(uint, uint);
 
-struct RefRulePos<'a>(&'a Rule, uint);
-
-impl<'a> std::fmt::Show for RefRulePos<'a> {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
-		let &RefRulePos(rule, pos) = self;
-		rule.fmt_internal(fmt, Some(pos))
-	}
-}
-
-impl RulePos {
-	fn with_grammar<'a>(&self, grammar: &'a Grammar) -> RefRulePos<'a> {
-		let &RulePos(rule, pos) = self;
-		RefRulePos(&grammar.rules[rule], pos)
-	}
-}
-
 #[deriving(Show)]
 struct NTerm {
 	type_: Vec<Token>,
@@ -112,35 +96,10 @@ struct Node {
 	reduce: Option<uint>
 }
 
-struct RefNode<'a, 'b>(&'a Grammar, &'b Node);
-
-impl<'a, 'b> std::fmt::Show for RefNode<'a, 'b> {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
-		let &RefNode(grammar, node) = self;
-		match fmt.write_str("{\n\t") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
-		let mut first = true;
-		for state in node.state.iter() {
-			if first {
-				first = false;
-			} else {
-				match fmt.write_str(",\n\t") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
-			}
-			try!(write!(fmt, "{}", state.with_grammar(grammar)));
-		}
-		match fmt.write_str("\n}") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
-		Ok(())
-	}
-}
-
-impl Node {
-	fn with_grammar<'a, 'b>(&'b self, grammar: &'a Grammar) -> RefNode<'a, 'b> {
-		RefNode(grammar, self)
-	}
-}
-
 mod parse_grammar;
 mod node_graph;
 mod output;
+mod show;
 
 fn assign_numbers<'a, I: Iterator<&'a Node>>(mut nodes: I, grammar: &Grammar) -> (HashMap<RuleItem, uint>, uint) {
 	let mut cur_id = 2u;

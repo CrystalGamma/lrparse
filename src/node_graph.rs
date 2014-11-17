@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use {Grammar, Node, RuleItem, Sym, Chr, RulePos};
+use show::WithGrammar;
 
 fn fill_up_state(state: &mut Vec<RulePos>, grammar: &Grammar) {
 	let mut idx = 0;
