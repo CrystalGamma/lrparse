@@ -35,11 +35,21 @@ enum RuleItem {
 	Chr(char)
 }
 
-#[deriving(Show)]
 struct Rule {
 	seq: Vec<RuleItem>,
 	code: Token,
 	nterm: Arc<String>
+}
+
+impl std::fmt::Show for Rule {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
+		match fmt.write_str(self.nterm.deref().as_slice()) {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+		match fmt.write_str(" <= ") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+		for item in self.seq.iter() {
+			try!(write!(fmt, " {}", item));
+		}
+		Ok(())
+	}
 }
 
 #[deriving(Show)]
