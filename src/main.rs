@@ -159,11 +159,10 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 
 fn main() {
 	let args = std::os::args();
-	let (gramm, out, debug, loglevel) = parse_cmdline(args.iter());
+	let (gramm, out, debug, loglevel) = parse_cmdline(args.slice_from(1).iter());
 	unsafe {
 		LOG_LEVEL = loglevel;
 	}
-	println!("loglvl {}", loglevel);
 	let path = Path::new(gramm.as_slice());
 	let file = match File::open(&path) {
 		Ok(x) => x,
@@ -183,7 +182,6 @@ fn main() {
 			Err(e) => panic!("{}", e)
 		}
 	}
-	println!("");
 	let grammar = parse_grammar(tree.as_slice());
 	if log_level() > 2 {
 		println!("{}", grammar);
