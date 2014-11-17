@@ -12,32 +12,24 @@ fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar, log_l
 		let mut seq: Vec<RuleItem> = Vec::new();
 		loop {
 			match tree[pos].content {
-				Tok(Identifier(ref s)) => {
-					seq.push(Sym(s.clone()));
-					pos += 1;
-				},
-				Tok(Char(c)) => {
-					seq.push(Chr(c));
-					pos += 1;
-				},
-				Tree('}', _) => {
-					grammar.rules.push(Rule {
-						seq: seq,
-						code: tree[pos].clone(),
-						nterm: nterm.clone()
-					});
-					pos += 1;
-					break;
-				},
-				Tok(Arrow) => { 
-					pos += 1;
-				}
+				Tok(Identifier(ref s)) => { seq.push(Sym(s.clone())); },
+				Tok(Char(c)) => { seq.push(Chr(c)); },
+				Tree('}', _) => { break; },
+				Tok(Arrow) => {}
 				_ => panic!()
 			}
+			pos += 1;
 		}
+		let rule = Rule {
+			seq: seq,
+			code: tree[pos].clone(),
+			nterm: nterm.clone()
+		};
+		pos += 1;
 		if log_level > 0 {
-			println!("rule {}: {}", grammar.rules.len() - 1, grammar.rules.last());
+			println!("rule {}: {}", grammar.rules.len(), rule);
 		}
+		grammar.rules.push(rule);
 		if pos != tree.len() {
 			match tree[pos].content {
 				Tok(Other(',')) => { pos += 1; },

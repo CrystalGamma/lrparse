@@ -41,14 +41,31 @@ struct Rule {
 	nterm: Arc<String>
 }
 
-impl std::fmt::Show for Rule {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
+impl Rule {
+	pub fn fmt_internal(&self, fmt: &mut std::fmt::Formatter, pos: Option<uint>) -> Result<(), std::fmt::FormatError> {
 		match fmt.write_str(self.nterm.deref().as_slice()) {Err(_) => return Err(std::fmt::WriteError), _ => {}};
-		match fmt.write_str(" <= ") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
-		for item in self.seq.iter() {
-			try!(write!(fmt, " {}", item));
+		match fmt.write_str(" <=") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+		let mut idx = 0;
+		if self.seq.len() > 0 {
+			for item in self.seq.iter() {
+				match pos {
+					Some(x) if x == idx => {
+					},
+					_ => {}
+				}
+				idx += 1;
+				try!(write!(fmt, " {}", item));
+			}
+		} else {
+			match fmt.write_str(" [empty]") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
 		}
 		Ok(())
+	}
+}
+
+impl std::fmt::Show for Rule {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
+		self.fmt_internal(fmt, None)
 	}
 }
 
