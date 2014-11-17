@@ -109,6 +109,8 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 	let mut out = "out.rs".to_string();
 	let mut debug = false;
 	let mut loglevel = 0;
+	let mut have_input = false;
+	let mut have_output = false;
 	for arg in args {
 		match state {
 			Nothing => {
@@ -134,11 +136,21 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 					}
 				} else {
 					gramm = arg.clone();
+					if have_input {
+						println!("Warning: Two input files specified");
+					} else {
+						have_input = true;
+					}
 				}
 			},
 			Output => {
 				state = Nothing;
 				out = arg.clone();
+				if have_output {
+					println!("Warning: Two output files specified");
+				} else {
+					have_output = true;
+				}
 			}
 		}
 	}
