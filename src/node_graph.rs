@@ -11,7 +11,7 @@ fn fill_up_state(state: &mut Vec<RulePos>, grammar: &Grammar) {
 			match rule.seq[pos] {
 				Chr(_) => {},
 				Sym(ref s) => {
-					match grammar.nterms.find(s) {
+					match grammar.nterms.get(s) {
 						Some(ref sym) => {
 							let (start, end) = sym.rules;
 							for i in range(start,end) {
@@ -21,7 +21,7 @@ fn fill_up_state(state: &mut Vec<RulePos>, grammar: &Grammar) {
 							}
 						}
 						None => {
-							match grammar.terms.find(s) {
+							match grammar.terms.get(s) {
 								Some(_) => {},
 								None => panic!("rule {} ({}) refers to unknown symbol {}",
 										r, rule, s)
@@ -93,7 +93,6 @@ pub fn create_nodes(grammar: &Grammar, log_level: uint) -> Vec<Node> {
 		for &RulePos(rule, p) in node.state.iter() {
 			let r = &grammar.rules[rule];
 			if r.seq.len() > p {
-				println!("rule {}, shift by {}", rule, r.seq[p]);
 				shifts.insert(r.seq[p].clone());
 			} else {
 				match node.reduce {
