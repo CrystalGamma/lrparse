@@ -97,15 +97,6 @@ fn assign_numbers<'a, I: Iterator<&'a Node>>(mut nodes: I, grammar: &Grammar) ->
 	(ids, cur_id)
 }
 
-// FIXME: just give this as parameters
-static mut LOG_LEVEL: uint = 0u;
-
-fn log_level() -> uint {
-	unsafe {
-		LOG_LEVEL
-	}
-}
-
 fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, String, bool, uint) {
 	#[deriving(PartialEq, Show)]
 	enum State {
@@ -159,10 +150,7 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 
 fn main() {
 	let args = std::os::args();
-	let (gramm, out, debug, loglevel) = parse_cmdline(args.slice_from(1).iter());
-	unsafe {
-		LOG_LEVEL = loglevel;
-	}
+	let (gramm, out, debug, log_level) = parse_cmdline(args.slice_from(1).iter());
 	let path = Path::new(gramm.as_slice());
 	let file = match File::open(&path) {
 		Ok(x) => x,
@@ -176,22 +164,22 @@ fn main() {
 		Ok(x) => x,
 		Err(e) => panic!("{}", e)
 	};
-	if log_level() > 2 {
+	if log_level > 2 {
 		match tree.iter().pretty_print(&mut std::io::stdio::stdout(), 0, true) {
 			Ok(_) => {},
 			Err(e) => panic!("{}", e)
 		}
 	}
-	let grammar = parse_grammar(tree.as_slice(), loglevel);
-	if log_level() > 2 {
+	let grammar = parse_grammar(tree.as_slice(), log_level);
+	if log_level > 2 {
 		println!("{}", grammar);
 	}
 	let nodes = create_nodes(&grammar);
-	if log_level() > 2 {
+	if log_level > 2 {
 		println!("{}", nodes);
 	}
 	let (mapping, num_symbols) = assign_numbers(nodes.iter(), &grammar);
-	if log_level() > 2 {
+	if log_level > 2 {
 		println!("mapping: {}", mapping);
 	}
 	match write_parser(&Path::new(out.as_slice()), nodes, mapping, num_symbols, &grammar, debug) {
