@@ -5,7 +5,7 @@ use nester::{Token, Char, Tok, Tree, PrettyPrint};
 use {Grammar, Node, RuleItem, Sym, Chr};
 
 fn get_type<'a>(sym: &String, grammar: &'a Grammar) -> &'a Vec<Token> {
-	match grammar.nterms.find(sym) {
+	match grammar.nterms.get(sym) {
 		Some(ref x) => &x.type_,
 		None => &grammar.terms[*sym]
 	}
@@ -144,7 +144,7 @@ static TABLE: &'static [uint] = &["));
 			let tok_id = mapping[shift];
 			match shift {
 				Chr(_) => { line[tok_id] = target + num_rules + 1; continue; },
-				Sym(ref s) => match grammar.nterms.find(s) {
+				Sym(ref s) => match grammar.nterms.get(s) {
 					None => { line[tok_id] = target + num_rules + 1; }
 					Some(_) => { line[tok_id] = target; }
 				}
