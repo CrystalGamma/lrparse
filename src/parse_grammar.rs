@@ -3,9 +3,9 @@ use std::collections::{HashMap, HashSet};
 
 use nester::{Token, Tok, Tree, Identifier, Char, Other, Arrow, CodeReference};
 use {Grammar, RuleItem, Sym, Chr, Rule, NTerm};
-use log_level;
 
-fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (uint, uint) {
+/// parses the body of a nonterminal definition, yielding rules evaluating to that symbol
+fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar, log_level: uint) -> (uint, uint) {
 	let mut pos = 0;
 	let start = grammar.rules.len();
 	loop {
@@ -35,7 +35,7 @@ fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (u
 				_ => panic!()
 			}
 		}
-		if log_level() > 0 {
+		if log_level > 0 {
 			println!("rule {}: {}", grammar.rules.len() - 1, grammar.rules.last());
 		}
 		if pos != tree.len() {
@@ -50,7 +50,8 @@ fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar) -> (u
 	}
 }
 
-pub fn parse_grammar(tree: &[Token]) -> Grammar {
+/// parses a grammar from a token tree
+pub fn parse_grammar(tree: &[Token], log_level: uint) -> Grammar {
 	let mut grammar = Grammar {
 		prelude: Vec::new(),
 		terms: HashMap::new(),
@@ -66,7 +67,7 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 	grammar.rules.push(Rule {
 		seq: Vec::new(),
 		code: Token {
-			content: Tree('}', Vec::new()),	// TODO
+			content: Tree('}', Vec::new()),	// never used
 			ref_: CodeReference::internal()
 		},
 		nterm: Arc::new("Accept_".to_string())
@@ -126,7 +127,7 @@ pub fn parse_grammar(tree: &[Token]) -> Grammar {
 						}
 						let nterm = NTerm {
 							type_: type_,
-							rules: parse_rules(t.as_slice(), &arc, &mut grammar)
+							rules: parse_rules(t.as_slice(), &arc, &mut grammar, log_level)
 						};
 						if grammar.nterms.insert(name.clone(), nterm).is_some() {
 							panic!("Doubly defined nonterminal symbol {} at {}", name, ref_);

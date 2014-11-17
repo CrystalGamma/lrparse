@@ -182,7 +182,7 @@ fn main() {
 			Err(e) => panic!("{}", e)
 		}
 	}
-	let grammar = parse_grammar(tree.as_slice());
+	let grammar = parse_grammar(tree.as_slice(), loglevel);
 	if log_level() > 2 {
 		println!("{}", grammar);
 	}
