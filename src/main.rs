@@ -50,6 +50,7 @@ impl Rule {
 			for item in self.seq.iter() {
 				match pos {
 					Some(x) if x == idx => {
+						match fmt.write_str(" .") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
 					},
 					_ => {}
 				}
@@ -66,6 +67,25 @@ impl Rule {
 impl std::fmt::Show for Rule {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
 		self.fmt_internal(fmt, None)
+	}
+}
+
+#[deriving(PartialEq, Eq, Show)]
+struct RulePos(uint, uint);
+
+struct RefRulePos<'a>(&'a Rule, uint);
+
+impl<'a> std::fmt::Show for RefRulePos<'a> {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
+		let &RefRulePos(rule, pos) = self;
+		rule.fmt_internal(fmt, Some(pos))
+	}
+}
+
+impl RulePos {
+	fn with_grammar<'a>(&self, grammar: &'a Grammar) -> RefRulePos<'a> {
+		let &RulePos(rule, pos) = self;
+		RefRulePos(&grammar.rules[rule], pos)
 	}
 }
 
@@ -87,9 +107,35 @@ struct Grammar {
 
 #[deriving(Show)]
 struct Node {
-	state: Vec<(uint,uint)>,	// (rule, position)
+	state: Vec<RulePos>,	// (rule, position)
 	shifts: HashMap<RuleItem, uint>,
 	reduce: Option<uint>
+}
+
+struct RefNode<'a, 'b>(&'a Grammar, &'b Node);
+
+impl<'a, 'b> std::fmt::Show for RefNode<'a, 'b> {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
+		let &RefNode(grammar, node) = self;
+		match fmt.write_str("{\n\t") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+		let mut first = true;
+		for state in node.state.iter() {
+			if first {
+				first = false;
+			} else {
+				match fmt.write_str(",\n\t") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+			}
+			try!(write!(fmt, "{}", state.with_grammar(grammar)));
+		}
+		match fmt.write_str("\n}") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+		Ok(())
+	}
+}
+
+impl Node {
+	fn with_grammar<'a, 'b>(&'b self, grammar: &'a Grammar) -> RefNode<'a, 'b> {
+		RefNode(grammar, self)
+	}
 }
 
 mod parse_grammar;
@@ -213,7 +259,7 @@ fn main() {
 	if log_level > 2 {
 		println!("{}", grammar);
 	}
-	let nodes = create_nodes(&grammar);
+	let nodes = create_nodes(&grammar, log_level);
 	if log_level > 2 {
 		println!("{}", nodes);
 	}

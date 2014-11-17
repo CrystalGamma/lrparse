@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
-use {Grammar, Node, RuleItem, Sym, Chr};
+use {Grammar, Node, RuleItem, Sym, Chr, RulePos};
 
-fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
+fn fill_up_state(state: &mut Vec<RulePos>, grammar: &Grammar) {
 	let mut idx = 0;
 	while idx < state.len() {	// we want to append to the array as we go, so no iterator :(
-		let (r, pos) = state[idx];
+		let RulePos(r, pos) = state[idx];
 		idx += 1;
 		let rule = &grammar.rules[r];
 		if rule.seq.len() > pos {
@@ -15,8 +15,8 @@ fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
 						Some(ref sym) => {
 							let (start, end) = sym.rules;
 							for i in range(start,end) {
-								if !state.contains(&(i, 0u)) {
-									state.push((i, 0u));
+								if !state.contains(&RulePos(i, 0u)) {
+									state.push(RulePos(i, 0u));
 								}
 							}
 						}
@@ -34,15 +34,17 @@ fn fill_up_state(state: &mut Vec<(uint, uint)>, grammar: &Grammar) {
 	}
 }
 
-fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Node>) {
-	print!("deriving by {}: ", item);
-	let mut newstate: Vec<(uint,uint)> = (*nodes)[pos].state.iter().filter(|&&(rule, p): &&(uint, uint)| {
+fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Node>, log_level: uint) {
+	if log_level > 2 {
+		print!("deriving by {}: ", item);
+	}
+	let mut newstate: Vec<RulePos> = (*nodes)[pos].state.iter().filter(|&&RulePos(rule, p): &&RulePos| {
 			let r = &grammar.rules[rule];
 			if r.seq.len() <= p {
 				return false;
 			}
 			r.seq[p] == item
-		}).map(|&(rule, p): &(uint, uint)| (rule, p + 1)).collect();
+		}).map(|&RulePos(rule, p): &RulePos| RulePos(rule, p + 1)).collect();
 	fill_up_state(&mut newstate, grammar);
 	if nodes.iter().any(|nod: &Node| {
 		if nod.state.len() != newstate.len() {
@@ -59,7 +61,9 @@ fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Nod
 	}
 	let idx = nodes.len();
 	nodes[pos].shifts.insert(item, idx);
-	println!("{}", newstate);
+	if log_level > 2 {
+		println!("{}", newstate);
+	}
 	nodes.push(Node {
 		state: newstate,
 		shifts: HashMap::new(),
@@ -67,9 +71,9 @@ fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Nod
 	});
 }
 
-pub fn create_nodes(grammar: &Grammar) -> Vec<Node> {
+pub fn create_nodes(grammar: &Grammar, log_level: uint) -> Vec<Node> {
 	let mut nodes: Vec<Node> = Vec::new();
-	let mut st = vec![(0,0)];
+	let mut st = vec![RulePos(0,0)];
 	fill_up_state(&mut st, grammar);
 	nodes.push(Node {
 		state: st,
@@ -77,14 +81,16 @@ pub fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 		reduce: None
 	});
 	let start = grammar.rules[0].seq[0].clone();
-	derive_node(grammar, 0, start, &mut nodes);	// enforce the accept state always being node #1
+	derive_node(grammar, 0, start, &mut nodes, log_level);	// enforce the accept state always being node #1
 	let mut pos = 0u;	// can't use iterator here because we write to the vector
 	loop {
 		let mut shifts: HashSet<RuleItem> = HashSet::new();
 		{
 		let node = &mut nodes[pos];
-		println!("Node {}: {}", pos, node);
-		for &(rule, p) in node.state.iter() {
+		if log_level > 1 {
+			println!("Node {}: {}", pos, node.with_grammar(grammar));
+		}
+		for &RulePos(rule, p) in node.state.iter() {
 			let r = &grammar.rules[rule];
 			if r.seq.len() > p {
 				println!("rule {}, shift by {}", rule, r.seq[p]);
@@ -97,14 +103,16 @@ pub fn create_nodes(grammar: &Grammar) -> Vec<Node> {
 				}
 			}
 		}
-		println!("-> shifts: {}", shifts);
-		match node.reduce {
-			None => {},
-			Some(x) => println!("-> reduce: {} ({})", x, grammar.rules[x])
+		if log_level > 1 {
+			println!("-> shifts: {}", shifts);
+			match node.reduce {
+				None => {},
+				Some(x) => println!("-> reduce: {} ({})", x, grammar.rules[x])
+			}
 		}
 		}
 		for item in shifts.into_iter() {
-			derive_node(grammar, pos, item, &mut nodes);
+			derive_node(grammar, pos, item, &mut nodes, log_level);
 		}
 		pos += 1;
 		if pos == nodes.len() {
