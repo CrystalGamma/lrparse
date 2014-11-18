@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use {Grammar, Node, RuleItem, Sym, Chr, RulePos};
 use show::WithGrammar;
 
+/// Adds state for any required nonterminal symbol in a state, until the state is completely defined
 fn fill_up_state(state: &mut Vec<RulePos>, grammar: &Grammar) {
 	let mut idx = 0;
 	while idx < state.len() {	// we want to append to the array as we go, so no iterator :(
@@ -35,6 +36,7 @@ fn fill_up_state(state: &mut Vec<RulePos>, grammar: &Grammar) {
 	}
 }
 
+/// creates a node that follows along a given symbol, adding it if it is not already in the node database
 fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Node>, log_level: uint) {
 	if log_level > 2 {
 		print!("deriving by {}: ", item);
@@ -72,6 +74,7 @@ fn derive_node(grammar: &Grammar, pos: uint, item: RuleItem, nodes: &mut Vec<Nod
 	});
 }
 
+/// builds a node graph out of the grammar
 pub fn create_nodes(grammar: &Grammar, log_level: uint) -> Vec<Node> {
 	let mut nodes: Vec<Node> = Vec::new();
 	let mut st = vec![RulePos(0,0)];
