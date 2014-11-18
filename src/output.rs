@@ -25,7 +25,7 @@ pub enum Token {
 		if !itm.is_char() {
 			try!(out.write_str(",
 	"));
-			try!(itm.write_type(out, 1));
+			try!(itm.write_type_definition(out, 1));
 		}
 	}
 	out.write_str("
@@ -235,13 +235,13 @@ impl Parser {
 		for i in range(0u, len) {
 			let sym = rule.seq[i].with_grammar(grammar);
 			if !sym.is_unit() {
-				try!(sym.write_type(out, 1));
+				try!(sym.write_type_definition(out, 1));
 			}
 		}
 		}
 		try!(out.write_str("), pos: CodeReference) -> Result<"));
 		let sym = Sym(grammar.rules[rule_id].nterm.deref().clone());
-		try!(sym.with_grammar(grammar).write_inner_type(out, 1));
+		try!(sym.with_grammar(grammar).write_type(out, 1));
 		try!(out.write_str(", Error> "));
 		try!(grammar.rules[rule_id].code.pretty_print_token(out, 1));
 	}
@@ -249,7 +249,7 @@ impl Parser {
 	pub fn end_parse(mut self, pos: CodeReference) -> Result<"));
 	let accept = Sym("Accept_".to_string());
 	let acc = accept.with_grammar(grammar);
-	try!(acc.write_inner_type(out, 1));
+	try!(acc.write_type(out, 1));
 	try!(out.write_str(", Error> {
 		loop {
 			let state = match self.stack.last() {

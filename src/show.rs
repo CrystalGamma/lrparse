@@ -32,11 +32,14 @@ impl<'a, 'b> Show for RefNode<'a, 'b> {
 	}
 }
 
+/// describes an object that can be looked up in a grammar
 pub trait WithGrammar<'a, 'b, T> {
+	/// looks the object up in the dictionary
 	fn with_grammar(&'b self, grammar: &'a Grammar) -> T;
 }
 
 impl<'a, 'b> WithGrammar<'a, 'b, RefRulePos<'a>> for RulePos {
+	/// retrieves the information necessary information to print rule positions
 	fn with_grammar(&'b self, grammar: &'a Grammar) -> RefRulePos<'a> {
 		let &RulePos(rule, pos) = self;
 		RefRulePos(&grammar.rules[rule], pos)
@@ -44,6 +47,7 @@ impl<'a, 'b> WithGrammar<'a, 'b, RefRulePos<'a>> for RulePos {
 }
 
 impl<'a, 'b> WithGrammar<'a, 'b, RefNode<'a, 'b>> for Node {
+	/// prepares to print a node's state
 	fn with_grammar(&'b self, grammar: &'a Grammar) -> RefNode<'a, 'b> {
 		RefNode(grammar, self)
 	}
@@ -55,7 +59,8 @@ enum RefRuleItem<'a, 'b> {
 }
 
 impl<'a, 'b> RefRuleItem<'a, 'b> {
-	pub fn write_inner_type<W: Writer>(&self, out: &mut W, indent: uint) -> IoResult<()> {
+	/// writes the type of the runtime information of the parser for this symbol
+	pub fn write_type<W: Writer>(&self, out: &mut W, indent: uint) -> IoResult<()> {
 		match self {
 			&Symbol(_, typ) => if typ.len() != 0 {
 				try!(out.write_str("("));
@@ -66,18 +71,20 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 		}
 		Ok(())
 	}
-	pub fn write_type<W: Writer>(&self, out: &mut W, indent: uint) -> IoResult<()> {
+	/// writes the type definition as used in an enum
+	pub fn write_type_definition<W: Writer>(&self, out: &mut W, indent: uint) -> IoResult<()> {
 		match self {
 			&Symbol(name, typ) => {
 				try!(out.write_str(name.as_slice()))
 				if typ.len() != 0 {
-					try!(self.write_inner_type(out, indent));
+					try!(self.write_type(out, indent));
 				}
 			},
 			&Char(_) => try!(out.write_str("Other(char)"))
 		}
 		Ok(())
 	}
+	/// writes a pattern that matches the symbol
 	pub fn write_pattern<W: Writer>(&self, out: &mut W, var: &str) -> IoResult<bool> {
 		match self {
 			&Symbol(name, typ) => {
@@ -97,6 +104,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 			}
 		}
 	}
+	/// writes the statement to pop a symbol from the parser stack
 	pub fn write_pop_command<W: Writer>(&self,
 					out: &mut W,
 					capture_pos: Option<&str>,
@@ -126,12 +134,14 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 			}
 		}
 	}
+	/// checks if the symbol is a character symbol
 	pub fn is_char(&self) -> bool {
 		match self {
 			&Symbol(..) => false,
 			&Char(_) => true
 		}
 	}
+	/// checks if the symbol has no run-time information for the parser
 	pub fn is_unit(&self) -> bool {
 		match self {
 			&Symbol(_, x) if x.len() != 0 => false,
@@ -141,6 +151,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 }
 
 impl<'a, 'b> WithGrammar<'a, 'b, RefRuleItem<'a, 'b>> for RuleItem {
+	/// does the lookups to output a symbol
 	fn with_grammar(&'b self, grammar: &'a Grammar) -> RefRuleItem<'a, 'b> {
 		match self {
 			&Chr(c) => Char(c),
