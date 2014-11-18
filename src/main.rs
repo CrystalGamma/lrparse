@@ -35,6 +35,15 @@ enum RuleItem {
 	Chr(char)
 }
 
+impl RuleItem {
+	pub fn is_eof(&self) -> bool {
+		match self {
+			&Chr(_) => false,
+			&Sym(ref s) => s.as_slice() == "$eof"
+		}
+	}
+}
+
 struct Rule {
 	seq: Vec<RuleItem>,
 	code: Token,
