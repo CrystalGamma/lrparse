@@ -23,6 +23,7 @@ use std::io::{IoResult, IoError};
 pub use nester::code_ref::{CodeReference, CodePoint};
 use std::sync::Arc;
 use self::lookahead::LookAhead;
+use self::TokenTree::{Tok, Tree};
 
 mod code_ref;
 
@@ -152,7 +153,7 @@ fn nesting_rec<I: Iterator<IoResult<lexer::Token>>>(la: &mut LookAhead<IoResult<
 	while la.proceed() {
 		let tok = match *la.peek() {
 			Ok(ref x) => x.clone(),
-			Err(ref e) => return Err(Error(e.clone()))
+			Err(ref e) => return Err(NestingError::Error(e.clone()))
 		};
 		match tok.content {
 			Other('{') | Other('(') | Other('[') => match nesting_rec(la, arc) {
@@ -165,7 +166,7 @@ fn nesting_rec<I: Iterator<IoResult<lexer::Token>>>(la: &mut LookAhead<IoResult<
 					ref_: CodeReference::from_lexer_token(&start, &tok, arc)
 				})
 			} else {
-				return Err(UnmatchedDelimiter(Token {
+				return Err(NestingError::UnmatchedDelimiter(Token {
 					ref_: CodeReference::from_lexer_token(&tok, &tok, arc),
 					content: Tok(tok.content)
 				}))
@@ -180,7 +181,7 @@ fn nesting_rec<I: Iterator<IoResult<lexer::Token>>>(la: &mut LookAhead<IoResult<
 		None => CodeReference::from_lexer_token(&start, &start, arc),
 		Some(x) => CodeReference::new(arc, CodePoint::new(start.line, start.start), x.ref_.end)
 	};
-	Err(UnclosedDelimiter(Token {
+	Err(NestingError::UnclosedDelimiter(Token {
 		content: Tree(typ, tree),
 		ref_: ref_
 	}))
@@ -196,14 +197,14 @@ pub fn nesting<I: Iterator<IoResult<lexer::Token>>>(lex: I, file: String) -> Res
 	loop {
 		let tok =  match la.peek() {
 			&Ok(ref x) => x.clone(),
-			&Err(ref e) => return Err(Error(e.clone()))
+			&Err(ref e) => return Err(NestingError::Error(e.clone()))
 		};
 		match tok.content {
 			Other('{') | Other('(') | Other('[') => match nesting_rec(&mut la, &arc) {
 				Ok(t) => tree.push(t),
 				Err(x) => return Err(x)
 			},
-			ref x @ Other('}') | ref x @ Other(')') | ref x @ Other(']') => return Err(UnmatchedDelimiter(Token {
+			ref x @ Other('}') | ref x @ Other(')') | ref x @ Other(']') => return Err(NestingError::UnmatchedDelimiter(Token {
 				ref_: CodeReference::from_lexer_token(&tok, &tok, &arc),
 				content: Tok(x.clone())
 			})),

@@ -1,7 +1,8 @@
 use std::fmt::{Show, Formatter, FormatError, WriteError};
 use std::io::IoResult;
-use nester::{Token, Tok, Tree, PrettyPrint};
-use {Rule, Node, RulePos, RuleItem, Grammar, Sym, Chr};
+use nester::{Token, PrettyPrint};
+use nester::TokenTree::*;
+use {Rule, Node, RulePos, RuleItem, Grammar};
 
 struct RefRulePos<'a>(&'a Rule, uint);
 
@@ -62,7 +63,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 	/// writes the type of the runtime information of the parser for this symbol
 	pub fn write_type<W: Writer>(&self, out: &mut W, indent: uint) -> IoResult<()> {
 		match self {
-			&Symbol(_, typ) => if typ.len() != 0 {
+			&RefRuleItem::Symbol(_, typ) => if typ.len() != 0 {
 				try!(out.write_str("("));
 				try!(typ.iter().pretty_print(out, indent, false));
 				try!(out.write_str(")"));
@@ -73,6 +74,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 	}
 	/// writes the type definition as used in an enum
 	pub fn write_type_definition<W: Writer>(&self, out: &mut W, indent: uint) -> IoResult<()> {
+		use self::RefRuleItem::*;
 		match self {
 			&Symbol(name, typ) => {
 				try!(out.write_str(name.as_slice()))
@@ -86,6 +88,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 	}
 	/// writes a pattern that matches the symbol
 	pub fn write_pattern<W: Writer>(&self, out: &mut W, var: &str) -> IoResult<bool> {
+		use self::RefRuleItem::*;
 		match self {
 			&Symbol(name, typ) => {
 				try!(out.write_str(name.as_slice()));
@@ -110,6 +113,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 					capture_pos: Option<&str>,
 					capture_val: uint)
 					-> IoResult<()> {
+		use self::RefRuleItem::Symbol;
 		match (capture_pos, self) {
 			(None, &Symbol(name, typ)) if typ.len() != 0 => {
 				try!(write!(out, "
@@ -136,6 +140,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 	}
 	/// checks if the symbol is a character symbol
 	pub fn is_char(&self) -> bool {
+		use self::RefRuleItem::*;
 		match self {
 			&Symbol(..) => false,
 			&Char(_) => true
@@ -143,6 +148,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 	}
 	/// checks if the symbol has no run-time information for the parser
 	pub fn is_unit(&self) -> bool {
+		use self::RefRuleItem::Symbol;
 		match self {
 			&Symbol(_, x) if x.len() != 0 => false,
 			_ => true	// chars and unit symbols
@@ -153,6 +159,8 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 impl<'a, 'b> WithGrammar<'a, 'b, RefRuleItem<'a, 'b>> for RuleItem {
 	/// does the lookups to output a symbol
 	fn with_grammar(&'b self, grammar: &'a Grammar) -> RefRuleItem<'a, 'b> {
+		use self::RefRuleItem::*;
+		use RuleItem::*;
 		match self {
 			&Chr(c) => Char(c),
 			&Sym(ref sym) => match grammar.nterms.get(sym) {

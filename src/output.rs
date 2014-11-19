@@ -2,8 +2,9 @@ use std::io::{File, Truncate, Write, IoResult, Writer};
 use std::collections::HashMap;
 
 use nester::{Token, PrettyPrint};
-use {Grammar, Node, RuleItem, Sym, Chr};
+use {Grammar, Node, RuleItem};
 use show::WithGrammar;
+use RuleItem::*;
 
 fn write_token_enum<W: Writer>(out: &mut W,
 			mapping: &HashMap<RuleItem, uint>,

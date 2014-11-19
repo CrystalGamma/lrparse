@@ -15,6 +15,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#![feature(globs)]
+
 extern crate lexer;
 
 use lexer::Lexer;
@@ -23,9 +25,7 @@ use std::io::{BufferedReader, File};
 use std::path::Path;
 use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
-use parse_grammar::parse_grammar;
-use node_graph::create_nodes;
-use output::write_parser;
+use RuleItem::*;
 
 mod nester;
 
@@ -38,8 +38,8 @@ enum RuleItem {
 impl RuleItem {
 	pub fn is_eof(&self) -> bool {
 		match self {
-			&Chr(_) => false,
-			&Sym(ref s) => s.as_slice() == "$eof"
+			&RuleItem::Chr(_) => false,
+			&RuleItem::Sym(ref s) => s.as_slice() == "$eof"
 		}
 	}
 }
@@ -145,7 +145,7 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 		Nothing
 	}
 
-	let mut state = Nothing;
+	let mut state = State::Nothing;
 	let mut gramm = "data/grammar".to_string();
 	let mut out = "out.rs".to_string();
 	let mut debug = false;
@@ -154,7 +154,7 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 	let mut have_output = false;
 	for arg in args {
 		match state {
-			Nothing => {
+			State::Nothing => {
 				if arg.char_at(0) == '-' {
 					if arg.char_at(1) == '-' {
 						match arg.as_slice() {
@@ -162,13 +162,13 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 							"--verbose" | "--verbose=1" => { loglevel = 1; },
 							"--verbose=2" => { loglevel = 2; },
 							"--verbose=3" => { loglevel = 3; },
-							"--out" | "--output" => { state = Output; },
+							"--out" | "--output" => { state = State::Output; },
 							_ => panic!("unrecognised cmdline argument {}", arg)
 						}
 					} else { // single-char args
 						for c in arg.slice_from(1).chars() {
 							match c {
-								'o' => { state = Output; },
+								'o' => { state = State::Output; },
 								'd' => { debug = true; },
 								'v' => { loglevel += 1; },
 								_ => panic!("unrecognised cmdline option -{}", c)
@@ -184,8 +184,8 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 					}
 				}
 			},
-			Output => {
-				state = Nothing;
+			State::Output => {
+				state = State::Nothing;
 				out = arg.clone();
 				if have_output {
 					println!("Warning: Two output files specified");
@@ -195,7 +195,7 @@ fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, Stri
 			}
 		}
 	}
-	if state != Nothing {
+	if state != State::Nothing {
 		panic!("expecting {} at the end of command line arguments", state);
 	}
 	(gramm, out, debug, loglevel)
@@ -223,11 +223,11 @@ fn main() {
 			Err(e) => panic!("{}", e)
 		}
 	}
-	let grammar = parse_grammar(tree.as_slice(), log_level);
+	let grammar = parse_grammar::parse_grammar(tree.as_slice(), log_level);
 	if log_level > 2 {
 		println!("{}", grammar);
 	}
-	let nodes = create_nodes(&grammar, log_level);
+	let nodes = node_graph::create_nodes(&grammar, log_level);
 	if log_level > 2 {
 		println!("{}", nodes);
 	}
@@ -235,7 +235,7 @@ fn main() {
 	if log_level > 2 {
 		println!("mapping: {}", mapping);
 	}
-	match write_parser(&Path::new(out.as_slice()), nodes, mapping, num_symbols, &grammar, debug) {
+	match output::write_parser(&Path::new(out.as_slice()), nodes, mapping, num_symbols, &grammar, debug) {
 		Ok(()) => {},
 		Err(e) => panic!("could not write grammar: {}", e)
 	}

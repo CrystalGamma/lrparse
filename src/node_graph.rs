@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use {Grammar, Node, RuleItem, Sym, Chr, RulePos};
+use {Grammar, Node, RuleItem, RulePos};
 use show::WithGrammar;
 
 /// Adds state for any required nonterminal symbol in a state, until the state is completely defined
@@ -11,8 +11,8 @@ fn fill_up_state(state: &mut Vec<RulePos>, grammar: &Grammar) {
 		let rule = &grammar.rules[r];
 		if rule.seq.len() > pos {
 			match rule.seq[pos] {
-				Chr(_) => {},
-				Sym(ref s) => {
+				RuleItem::Chr(_) => {},
+				RuleItem::Sym(ref s) => {
 					match grammar.nterms.get(s) {
 						Some(ref sym) => {
 							let (start, end) = sym.rules;

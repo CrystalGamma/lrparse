@@ -1,8 +1,11 @@
 use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
 
-use nester::{Token, Tok, Tree, Identifier, Char, Other, Arrow, CodeReference};
-use {Grammar, RuleItem, Sym, Chr, Rule, NTerm};
+use nester::{Token, CodeReference};
+use nester::TokenTree::{Tok, Tree};
+use nester::TokenContent::*;
+use {Grammar, RuleItem, Rule, NTerm};
+use RuleItem::*;
 
 /// parses the body of a nonterminal definition, yielding rules evaluating to that symbol
 fn parse_rules(tree: &[Token], nterm: &Arc<String>, grammar: &mut Grammar, log_level: uint) -> (uint, uint) {
