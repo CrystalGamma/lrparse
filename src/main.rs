@@ -51,7 +51,9 @@ struct Rule {
 }
 
 impl Rule {
-	pub fn fmt_internal(&self, fmt: &mut std::fmt::Formatter, pos: Option<uint>) -> Result<(), std::fmt::FormatError> {
+	/// formats the rule in a human-friendly form, optinally writing a position indicator ( . ) at a given position
+	pub fn fmt_internal(&self, fmt: &mut std::fmt::Formatter, pos: Option<uint>)
+			-> Result<(), std::fmt::FormatError> {
 		match fmt.write_str(self.nterm.deref().as_slice()) {Err(_) => return Err(std::fmt::WriteError), _ => {}};
 		match fmt.write_str(" <=") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
 		let mut idx = 0;
@@ -110,6 +112,7 @@ mod node_graph;
 mod output;
 mod show;
 
+/// creates a mapping between symbols and symbol IDs and warns about unused symbols
 fn assign_numbers<'a, I: Iterator<&'a Node>>(mut nodes: I, grammar: &Grammar) -> (HashMap<RuleItem, uint>, uint) {
 	let mut cur_id = 2u;
 	let mut ids: HashMap<RuleItem, uint> = HashMap::new();
@@ -138,6 +141,9 @@ fn assign_numbers<'a, I: Iterator<&'a Node>>(mut nodes: I, grammar: &Grammar) ->
 	(ids, cur_id)
 }
 
+/// parses the command-line arguments
+///
+/// result: (input, output, debug-mode parser?, log level)
 fn parse_cmdline<'a, I: 'a + Iterator<&'a String>>(mut args: I) -> (String, String, bool, uint) {
 	#[deriving(PartialEq, Show)]
 	enum State {
