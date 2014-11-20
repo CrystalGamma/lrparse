@@ -2,7 +2,7 @@ use std::io::{File, Truncate, Write, IoResult, Writer};
 use std::collections::HashMap;
 
 use nester::{Token, PrettyPrint};
-use {Grammar, Node, RuleItem};
+use {Grammar, Node, RuleItem, Rule};
 use show::WithGrammar;
 use RuleItem::*;
 
@@ -90,6 +90,22 @@ static TABLE: &'static [uint] = &["));
 		}
 	}
 	out.write_str("];")
+}
+
+fn write_rule_fn<W: Writer>(out: &mut W, rule_id: uint, rule: &Rule, grammar: &Grammar) -> IoResult<()> {
+		try!(write!(out, "\n\tfn rule{}(&mut self, symbols: (", rule_id));
+		let len = rule.seq.len();
+		for i in range(0u, len) {
+			let sym = rule.seq[i].with_grammar(grammar);
+			if !sym.is_unit() {
+				try!(sym.write_type_definition(out, 1));
+			}
+		}
+		try!(out.write_str("), pos: CodeReference) -> Result<"));
+		let sym = Sym(grammar.rules[rule_id].nterm.deref().clone());
+		try!(sym.with_grammar(grammar).write_type(out, 1));
+		try!(out.write_str(", Error> "));
+		grammar.rules[rule_id].code.pretty_print_token(out, 1)
 }
 
 pub fn write_parser(filename: &Path,
@@ -237,26 +253,12 @@ impl Parser {
 			Err(e) => Err(e)
 		}
 	}"));
-	for rule_id in range(1, grammar.rules.len()) {	// FIXME: can't borrow grammar here
-		{
-		let rule = &grammar.rules[rule_id];
-		if !mapping.contains_key(&Sym(rule.nterm.deref().clone())) {
-			continue;	// prevent crashes if nonterminal is not used / has no mapping
+	let mut rule_id = 0;
+	for rule in grammar.rules.iter() {
+		if rule_id > 0 && mapping.contains_key(&Sym(rule.nterm.deref().clone())) {
+			try!(write_rule_fn(out, rule_id, rule, grammar));
 		}
-		try!(write!(out, "\n\tfn rule{}(&mut self, symbols: (", rule_id));
-		let len = rule.seq.len();
-		for i in range(0u, len) {
-			let sym = rule.seq[i].with_grammar(grammar);
-			if !sym.is_unit() {
-				try!(sym.write_type_definition(out, 1));
-			}
-		}
-		}
-		try!(out.write_str("), pos: CodeReference) -> Result<"));
-		let sym = Sym(grammar.rules[rule_id].nterm.deref().clone());
-		try!(sym.with_grammar(grammar).write_type(out, 1));
-		try!(out.write_str(", Error> "));
-		try!(grammar.rules[rule_id].code.pretty_print_token(out, 1));
+		rule_id += 1;
 	}
 	try!(out.write_str("
 	pub fn end_parse(mut self, pos: CodeReference) -> Result<"));
