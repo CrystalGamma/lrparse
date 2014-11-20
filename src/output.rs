@@ -57,6 +57,7 @@ pub enum Error {
 }")
 }
 
+/// writes the state transition / action table
 fn write_table<W: Writer, I: Iterator<Node>>(out: &mut W,
 					mut nodes: I,
 					grammar: &Grammar,
@@ -92,6 +93,7 @@ static TABLE: &'static [uint] = &["));
 	out.write_str("];")
 }
 
+/// writes the function containing the code associated to a rule
 fn write_rule_fn<W: Writer>(out: &mut W, rule_id: uint, rule: &Rule, grammar: &Grammar) -> IoResult<()> {
 		try!(write!(out, "\n\tfn rule{}(&mut self, symbols: (", rule_id));
 		let len = rule.seq.len();
@@ -108,6 +110,7 @@ fn write_rule_fn<W: Writer>(out: &mut W, rule_id: uint, rule: &Rule, grammar: &G
 		grammar.rules[rule_id].code.pretty_print_token(out, 1)
 }
 
+/// writes the parser to a file
 pub fn write_parser(filename: &Path,
 		nodes: Vec<Node>,
 		mapping: HashMap<RuleItem, uint>,
