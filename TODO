@@ -1,7 +1,5 @@
 Current concerns:
 Subparsers (will be used in the implementation of macros)
-Cleanup
-Documentation
 
 Future endeavors:
 Error recovery?

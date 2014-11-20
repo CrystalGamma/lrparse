@@ -29,9 +29,10 @@ use RuleItem::*;
 
 mod nester;
 
+/// a symbol in the broader sense (includes character symbols)
 #[deriving(Show,PartialEq,Hash,Eq,Clone)]
 enum RuleItem {
-	Sym(String),
+	Sym(String),	// a named symbol
 	Chr(char)
 }
 
@@ -44,6 +45,7 @@ impl RuleItem {
 	}
 }
 
+/// a rule for how to construct a nonterminal symbol
 struct Rule {
 	seq: Vec<RuleItem>,
 	code: Token,
@@ -81,9 +83,7 @@ impl std::fmt::Show for Rule {
 	}
 }
 
-#[deriving(PartialEq, Eq, Show)]
-struct RulePos(uint, uint);
-
+/// collection of information on a nonterminal symbol
 #[deriving(Show)]
 struct NTerm {
 	type_: Vec<Token>,
@@ -100,9 +100,14 @@ struct Grammar {
 	errors: HashMap<String, Vec<Token>>
 }
 
+/// an item of state for a node
+#[deriving(PartialEq, Eq, Show)]
+struct RulePos(uint, uint);
+
+/// a state node for the LR parser
 #[deriving(Show)]
 struct Node {
-	state: Vec<RulePos>,	// (rule, position)
+	state: Vec<RulePos>,
 	shifts: HashMap<RuleItem, uint>,
 	reduce: Option<uint>
 }

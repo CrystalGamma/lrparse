@@ -21,7 +21,6 @@ use std::sync::Arc;
 use std::fmt::{Formatter, Show, FormatError, Arguments};
 
 /// A human-readable offset into a text file
-
 #[deriving(PartialEq,Clone)]
 pub struct CodePoint {
 	line: uint,
@@ -39,7 +38,6 @@ impl CodePoint {
 }
 
 /// A reference to range of characters in a text file
-
 #[deriving(Clone)]
 pub struct CodeReference {
 	pub filename: Arc<String>,
@@ -62,7 +60,7 @@ impl CodeReference {
 		CodeReference::new(&Arc::new("$internal$".to_string()), CodePoint::new(0,0), CodePoint::new(0,0))
 	}
 
-	/// 
+	/// constructs a CodeReference from a rust-lexer token
 	pub fn from_lexer_token(start: &lexer::Token, end: &lexer::Token, filename: &Arc<String>) -> CodeReference {
 		CodeReference {
 			filename: filename.clone(),

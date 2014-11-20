@@ -27,12 +27,14 @@ use self::TokenTree::{Tok, Tree};
 
 mod code_ref;
 
+/// the content of a token tree node
 #[deriving(Clone,Show)]
 pub enum TokenTree {
 	Tok(TokenContent),
 	Tree(char, Vec<Token>)
 }
 
+/// a node in a token tree, with associated text position
 #[deriving(Clone)]
 pub struct Token {
 	pub content: TokenTree,
@@ -40,6 +42,7 @@ pub struct Token {
 }
 
 impl Token {
+	/// writes the token tree node in a human-friendly format
 	pub fn pretty_print_token<W: Writer>(&self, write: &mut W, indent: uint) -> IoResult<()> {
 		match self.content {
 			Tree(c @ _, ref t @ _) => {
@@ -90,6 +93,7 @@ pub trait PrettyPrint {
 }
 
 impl<'a, I: Iterator<&'a Token>> PrettyPrint for I {
+	/// writes the token tree sequence in a format more suited for humans than just writing them in one line
 	fn pretty_print<W: Writer>(mut self, write: &mut W, indent: uint, break_on_comma: bool) -> IoResult<()> {
 		let mut just_had_text = false;
 		for tok in self {
@@ -138,7 +142,9 @@ pub enum NestingError {
 	Error(IoError)
 }
 
-fn nesting_rec<I: Iterator<IoResult<lexer::Token>>>(la: &mut LookAhead<IoResult<lexer::Token>, I>, arc: &Arc<String>) -> Result<Token, NestingError> {
+/// builds a token tree starting from an opening delimiter and stopping at the closing one
+fn nesting_rec<I: Iterator<IoResult<lexer::Token>>>(la: &mut LookAhead<IoResult<lexer::Token>, I>, arc: &Arc<String>)
+						-> Result<Token, NestingError> {
 	let start = match *la.peek() {
 		Ok(ref x) => x.clone(),
 		Err(_) => panic!()
@@ -187,6 +193,7 @@ fn nesting_rec<I: Iterator<IoResult<lexer::Token>>>(la: &mut LookAhead<IoResult<
 	}))
 }
 
+/// builds a token tree out of a token iterator
 pub fn nesting<I: Iterator<IoResult<lexer::Token>>>(lex: I, file: String) -> Result<Vec<Token>, NestingError> {
 	let mut la = match LookAhead::new(lex) {
 		None => return Ok(Vec::new()),
