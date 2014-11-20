@@ -6,6 +6,7 @@ use {Grammar, Node, RuleItem};
 use show::WithGrammar;
 use RuleItem::*;
 
+/// writes the definition of the symbol enumeration
 fn write_token_enum<W: Writer>(out: &mut W,
 			mapping: &HashMap<RuleItem, uint>,
 			grammar: &Grammar,
@@ -33,6 +34,7 @@ pub enum Token {
 }")
 }
 
+/// writes the definition of the error code enumeration
 fn write_error_enum<W: Writer>(out: &mut W, errors: &HashMap<String, Vec<Token>>, debug: bool) -> IoResult<()> {
 	if debug {
 		try!(out.write_str("
@@ -55,22 +57,16 @@ pub enum Error {
 }")
 }
 
-pub fn write_parser(filename: &Path,
-		nodes: Vec<Node>,
-		mapping: HashMap<RuleItem, uint>,
-		num_symbols: uint,
-		grammar: &Grammar,
-		debug: bool)
-		-> IoResult<()> {
-	let mut file = try!(File::open_mode(filename, Truncate, Write));
-	let out = &mut file;
-	try!(grammar.prelude.iter().pretty_print(out, 0, false));
-	try!(write_token_enum(out, &mapping, grammar, debug));
-	try!(write_error_enum(out, &grammar.errors, debug));
+fn write_table<W: Writer, I: Iterator<Node>>(out: &mut W,
+					mut nodes: I,
+					grammar: &Grammar,
+					num_symbols: uint,
+					mapping: &HashMap<RuleItem, uint>)
+					-> IoResult<()> {
 	try!(out.write_str("
 static TABLE: &'static [uint] = &["));
 	let num_rules = grammar.rules.len();
-	for node in nodes.into_iter() {
+	for node in nodes {
 		let mut line: Vec<uint> = Vec::with_capacity(num_symbols);
 		line.grow(num_symbols, match node.reduce {
 			Some(x) => x + 1,
@@ -93,7 +89,23 @@ static TABLE: &'static [uint] = &["));
 			try!(write!(out, "{:8u},", num));
 		}
 	}
-	try!(write!(out, "];
+	out.write_str("];")
+}
+
+pub fn write_parser(filename: &Path,
+		nodes: Vec<Node>,
+		mapping: HashMap<RuleItem, uint>,
+		num_symbols: uint,
+		grammar: &Grammar,
+		debug: bool)
+		-> IoResult<()> {
+	let mut file = try!(File::open_mode(filename, Truncate, Write));
+	let out = &mut file;
+	try!(grammar.prelude.iter().pretty_print(out, 0, false));
+	try!(write_token_enum(out, &mapping, grammar, debug));
+	try!(write_error_enum(out, &grammar.errors, debug));
+	try!(write_table(out, nodes.into_iter(), grammar, num_symbols, &mapping));
+	try!(write!(out, "
 static NUM_RULES: uint = {}u;\nstatic NUM_SYMBOLS: uint = {}u;\n",
 			grammar.rules.len(), num_symbols));
 	if debug {
