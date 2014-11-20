@@ -63,7 +63,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 	/// writes the type of the runtime information of the parser for this symbol
 	pub fn write_type<W: Writer>(&self, out: &mut W, indent: uint) -> IoResult<()> {
 		match self {
-			&RefRuleItem::Symbol(_, typ) => if typ.len() != 0 {
+			&RefRuleItem::Symbol(_, typ) => {
 				try!(out.write_str("("));
 				try!(typ.iter().pretty_print(out, indent, false));
 				try!(out.write_str(")"));
@@ -91,6 +91,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 		use self::RefRuleItem::*;
 		match self {
 			&Symbol(name, typ) => {
+				try!(out.write_str("Token::"));
 				try!(out.write_str(name.as_slice()));
 				if typ.len() != 0 {
 					try!(write!(out, "({})", var));
@@ -99,9 +100,8 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 				Ok(false)
 			},
 			&Char(c) => {
-				try!(out.write_str("Other("));
-				try!(Token::internal(Tree(')',
-					vec![Token::internal(Tok(::nester::Char(c)))])).pretty_print_token(out, 1));
+				try!(out.write_str("Token::Other("));
+				try!(Token::internal(Tok(::nester::Char(c))).pretty_print_token(out, 1));
 				try!(out.write_str(")"));
 				Ok(true)
 			}
@@ -118,13 +118,13 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 			(None, &Symbol(name, typ)) if typ.len() != 0 => {
 				try!(write!(out, "
 					let sym{}", capture_val));
-				try!(out.write_str(" =  match self.stack.pop() { Some((_, "));
+				try!(out.write_str(" =  match self.stack.pop() { Some((_, Token::"));
 				try!(out.write_str(name.as_slice()));
 				out.write_str("(v), _)) => v, _ => panic!() };")
 			},
 			(Some(pos), &Symbol(name, typ)) if typ.len() != 0 => {
 				try!(write!(out, "let (sym{}, {}", capture_val, pos));
-				try!(out.write_str(") =  match self.stack.pop() { Some((_, "));
+				try!(out.write_str(") =  match self.stack.pop() { Some((_, Token::"));
 				try!(out.write_str(name.as_slice()));
 				out.write_str("(v), p)) => (v, p), _ => panic!() };")
 			},

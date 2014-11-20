@@ -100,7 +100,8 @@ fn write_rule_fn<W: Writer>(out: &mut W, rule_id: uint, rule: &Rule, grammar: &G
 		for i in range(0u, len) {
 			let sym = rule.seq[i].with_grammar(grammar);
 			if !sym.is_unit() {
-				try!(sym.write_type_definition(out, 1));
+				try!(sym.write_type(out, 1));
+				try!(out.write_str(", "));
 			}
 		}
 		try!(out.write_str("), pos: CodeReference) -> Result<"));
@@ -138,7 +139,7 @@ pub struct Parser {
 
 impl Parser {
 	pub fn new(pos: CodeReference) -> Parser {
-		Parser {stack: vec![(0u, Other('#'), pos)]}
+		Parser {stack: vec![(0u, Token::Other('#'), pos)]}
 	}
 	fn get_token_id(tok: &Token) -> uint {
 		match tok {"));
@@ -149,7 +150,7 @@ impl Parser {
 		let itm = item.with_grammar(grammar);
 		try!(out.write_str("\n\t\t\t&"));
 		try!(itm.write_pattern(out, "_"));
-		try!(write!(out, " => {}u", id));
+		try!(write!(out, " => {}u,", id));
 	}
 	try!(out.write_str("\n\t\t\t_ => panic!(\"unknown token used in parser\")
 		}
@@ -173,7 +174,7 @@ impl Parser {
 	}
 	fn reduce(&mut self, rule: uint, redpos: CodeReference) -> Result<(), Error> {
 		match match rule {
-			0 => Err(SyntaxError(redpos)),
+			0 => Err(Error::SyntaxError(redpos)),
 			1 => {
 				"));
 	let start_sym = grammar.rules[0].seq[0].with_grammar(grammar);
@@ -187,7 +188,7 @@ impl Parser {
 					Some((_, _, p)) => p,
 					_ => panic!()
 				};
-				self.stack.push((1, Accept_, pos));"));
+				self.stack.push((1, Token::Accept_, pos));"));
 	}
 	try!(out.write_str("
 				return Ok(());
@@ -236,9 +237,9 @@ impl Parser {
 		try!(out.write_str("), pos));
 				"));
 		if is_unit {
-			try!(write!(out, "Ok(({}, {}, pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+			try!(write!(out, "Ok(({}, Token::{}, pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
 		} else {
-			try!(write!(out, "Ok(({}, {}(res), pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
+			try!(write!(out, "Ok(({}, Token::{}(res), pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
 		}
 		try!(out.write_str("
 			}"));
@@ -273,7 +274,7 @@ impl Parser {
 			let state = match self.stack.last() {
 				Some(&(_, "));
 	try!(acc.write_pattern(out, "x"));
-	if acc.is_unit() {
+	if !acc.is_unit() {
 		try!(out.write_str(", _)) => return Ok(x),"));
 	} else {
 		try!(out.write_str(", _)) => return Ok(()),"));
