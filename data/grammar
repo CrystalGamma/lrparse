@@ -22,7 +22,7 @@ impl CodeReference {
 #Fn
 #Returns	// ->
 
-!TestError
+!TestError(uint)
 
 RustFile{
 	{Ok(())},
