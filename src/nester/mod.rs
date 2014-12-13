@@ -18,7 +18,8 @@
 extern crate lexer;
 extern crate lookahead;
 
-pub use lexer::{TokenContent, Identifier, Char, Lifetime, StringLiteral, Arrow, Scope, Equals, UnEqual, Other};
+pub use lexer::TokenContent;
+pub use lexer::TokenContent::*;
 use std::io::{IoResult, IoError};
 pub use nester::code_ref::{CodeReference, CodePoint};
 use std::sync::Arc;
@@ -54,12 +55,12 @@ impl Token {
 				}));
 				let mut newindent = indent;
 				if c == '}' {
-					try!(write!(write, "\n{st:\t<0$s}", indent + 1, st=""));
+					try!(write!(write, "\n{st:\t<0$}", indent + 1, st=""));
 					newindent = indent + 1;
 				}
 				try!(t.iter().pretty_print(write, newindent, c == '}'));
 				if c == '}' {
-					try!(write!(write, "\n{st:\t<0$s}", indent, st=""));
+					try!(write!(write, "\n{st:\t<0$}", indent, st=""));
 				}
 				write.write_char(c)
 			},
@@ -105,8 +106,8 @@ impl<'a, I: Iterator<&'a Token>> PrettyPrint for I {
 			}
 			try!(tok.pretty_print_token(write, indent));
 			match tok.content {
-				Tok(Other(',')) if break_on_comma => try!(write!(write, "\n{st:\t<0$s}", indent, st="")),
-				Tok(Other(';')) => try!(write!(write, "\n{st:\t<0$s}", indent, st="")),
+				Tok(Other(',')) if break_on_comma => try!(write!(write, "\n{st:\t<0$}", indent, st="")),
+				Tok(Other(';')) => try!(write!(write, "\n{st:\t<0$}", indent, st="")),
 				_ => {}
 			}
 		}
@@ -115,7 +116,7 @@ impl<'a, I: Iterator<&'a Token>> PrettyPrint for I {
 }
 
 impl ::std::fmt::Show for Token {
-	fn fmt(&self, format: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::FormatError> {
+	fn fmt(&self, format: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
 		match self.content {
 			Tok(ref x) => x.fmt(format),
 			Tree(typ, ref tree) => match typ {
@@ -185,7 +186,7 @@ fn nesting_rec<I: Iterator<IoResult<lexer::Token>>>(la: &mut LookAhead<IoResult<
 	}
 	let ref_ = match tree.last() {
 		None => CodeReference::from_lexer_token(&start, &start, arc),
-		Some(x) => CodeReference::new(arc, CodePoint::new(start.line, start.start), x.ref_.end)
+		Some(x) => CodeReference::new(arc, CodePoint::new(start.line, start.start), x.ref_.end.clone())
 	};
 	Err(NestingError::UnclosedDelimiter(Token {
 		content: Tree(typ, tree),

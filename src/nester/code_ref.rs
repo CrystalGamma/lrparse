@@ -18,7 +18,7 @@
 extern crate lexer;
 
 use std::sync::Arc;
-use std::fmt::{Formatter, Show, FormatError, Arguments};
+use std::fmt::{Formatter, Show, Error, Arguments};
 
 /// A human-readable offset into a text file
 #[deriving(PartialEq,Clone)]
@@ -71,7 +71,7 @@ impl CodeReference {
 }
 
 impl Show for CodeReference {
-	fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatError> {
+	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		if self.start.line == self.end.line {
 			format_args!(|args: &Arguments| fmt.write_fmt(args),
 				"{}:{}:{}-{}", self.filename.deref(), self.start.line, self.start.column, self.end.column)

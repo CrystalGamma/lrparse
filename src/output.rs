@@ -87,7 +87,7 @@ static TABLE: &'static [uint] = &["));
 		println!("{}", line);
 		try!(out.write_str("\n"));
 		for num in line.into_iter() {
-			try!(write!(out, "{:8u},", num));
+			try!(write!(out, "{:8},", num));
 		}
 	}
 	out.write_str("];")

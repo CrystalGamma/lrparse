@@ -1,4 +1,4 @@
-use std::fmt::{Show, Formatter, FormatError, WriteError};
+use std::fmt::{Show, Formatter, Error};
 use std::io::IoResult;
 use nester::{Token, PrettyPrint};
 use nester::TokenTree::*;
@@ -7,7 +7,7 @@ use {Rule, Node, RulePos, RuleItem, Grammar};
 struct RefRulePos<'a>(&'a Rule, uint);
 
 impl<'a> Show for RefRulePos<'a> {
-	fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatError> {
+	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		let &RefRulePos(rule, pos) = self;
 		rule.fmt_internal(fmt, Some(pos))
 	}
@@ -16,19 +16,19 @@ impl<'a> Show for RefRulePos<'a> {
 pub struct RefNode<'a, 'b>(&'a Grammar, &'b Node);
 
 impl<'a, 'b> Show for RefNode<'a, 'b> {
-	fn fmt(&self, fmt: &mut Formatter) -> Result<(), FormatError> {
+	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		let &RefNode(grammar, node) = self;
-		match fmt.write_str("{\n\t") {Err(_) => return Err(WriteError), _ => {}};
+		match fmt.write_str("{\n\t") {Err(_) => return Err(Error), _ => {}};
 		let mut first = true;
 		for state in node.state.iter() {
 			if first {
 				first = false;
 			} else {
-				match fmt.write_str(",\n\t") {Err(_) => return Err(WriteError), _ => {}};
+				match fmt.write_str(",\n\t") {Err(_) => return Err(Error), _ => {}};
 			}
 			try!(write!(fmt, "{}", state.with_grammar(grammar)));
 		}
-		match fmt.write_str("\n}") {Err(_) => return Err(WriteError), _ => {}};
+		match fmt.write_str("\n}") {Err(_) => return Err(Error), _ => {}};
 		Ok(())
 	}
 }

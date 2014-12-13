@@ -55,15 +55,15 @@ struct Rule {
 impl Rule {
 	/// formats the rule in a human-friendly form, optinally writing a position indicator ( . ) at a given position
 	pub fn fmt_internal(&self, fmt: &mut std::fmt::Formatter, pos: Option<uint>)
-			-> Result<(), std::fmt::FormatError> {
-		match fmt.write_str(self.nterm.deref().as_slice()) {Err(_) => return Err(std::fmt::WriteError), _ => {}};
-		match fmt.write_str(" <=") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+			-> Result<(), std::fmt::Error> {
+		match fmt.write_str(self.nterm.deref().as_slice()) {Err(_) => return Err(std::fmt::Error), _ => {}};
+		match fmt.write_str(" <=") {Err(_) => return Err(std::fmt::Error), _ => {}};
 		let mut idx = 0;
 		if self.seq.len() > 0 {
 			for item in self.seq.iter() {
 				match pos {
 					Some(x) if x == idx => {
-						match fmt.write_str(" .") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+						match fmt.write_str(" .") {Err(_) => return Err(std::fmt::Error), _ => {}};
 					},
 					_ => {}
 				}
@@ -71,14 +71,14 @@ impl Rule {
 				try!(write!(fmt, " {}", item));
 			}
 		} else {
-			match fmt.write_str(" [empty]") {Err(_) => return Err(std::fmt::WriteError), _ => {}};
+			match fmt.write_str(" [empty]") {Err(_) => return Err(std::fmt::Error), _ => {}};
 		}
 		Ok(())
 	}
 }
 
 impl std::fmt::Show for Rule {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::FormatError> {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
 		self.fmt_internal(fmt, None)
 	}
 }
