@@ -104,7 +104,7 @@ fn write_rule_fn<W: Writer>(out: &mut W, rule_id: uint, rule: &Rule, grammar: &G
 				try!(out.write_str(", "));
 			}
 		}
-		try!(out.write_str("), pos: CodeReference) -> Result<"));
+		try!(out.write_str("), pos: &CodeReference) -> Result<"));
 		let sym = Sym(grammar.rules[rule_id].nterm.deref().clone());
 		try!(sym.with_grammar(grammar).write_type(out, 1));
 		try!(out.write_str(", Error> "));
@@ -234,7 +234,7 @@ impl Parser {
 		for i in range(0, len).filter(|&i: &uint| !rule.seq[i].with_grammar(grammar).is_unit()) {
 			try!(write!(out, "sym{}, ", i));
 		}
-		try!(out.write_str("), pos));
+		try!(out.write_str("), &pos));
 				"));
 		if is_unit {
 			try!(write!(out, "Ok(({}, Token::{}, pos))", mapping[Sym(rule.nterm.deref().clone())], rule.nterm));
