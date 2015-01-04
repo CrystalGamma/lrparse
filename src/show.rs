@@ -77,7 +77,7 @@ impl<'a, 'b> RefRuleItem<'a, 'b> {
 		use self::RefRuleItem::*;
 		match self {
 			&Symbol(name, typ) => {
-				try!(out.write_str(name.as_slice()))
+				try!(out.write_str(name.as_slice()));
 				if typ.len() != 0 {
 					try!(self.write_type(out, indent));
 				}
